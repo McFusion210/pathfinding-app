@@ -354,14 +354,15 @@ with tab_browse:
             for i, opt in enumerate(sorted(options, key=str.lower)):
                 with grp_cols[i % 2]:
                     lbl = f"{opt} ({tag_counts_ctx.get(opt,0)})"
-                    st.session_state.tag_checks[opt] = st.checkbox(lbl, value=st.session_state.tag_checks[opt], key=f"tag_{opt}")
+                    st.session_state.tag_checks[opt] = st.checkbox(lbl, value=st.session_state.tag_checks[opt], key=f"tag_{group_name}_{opt}"
+)
         if other:
             st.markdown("**Other**")
             grp_cols = st.columns(2)
             for i, opt in enumerate(sorted(other, key=str.lower)):
                 with grp_cols[i % 2]:
                     lbl = f"{opt} ({tag_counts_ctx.get(opt,0)})"
-                    st.session_state.tag_checks[opt] = st.checkbox(lbl, value=st.session_state.tag_checks[opt], key=f"tag_{opt}")
+                    st.session_state.tag_checks[opt] = st.checkbox(lbl, value=st.session_state.tag_checks[opt], key=f"tag_other_{opt}")
         colT1, colT2 = st.columns(2)
         if colT1.button("Select all tags"):
             for opt in tags_all: st.session_state.tag_checks[opt] = True
