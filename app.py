@@ -378,11 +378,10 @@ st.markdown(ef_html, unsafe_allow_html=True)
     with left:
         clicked = False
        links_html = []
-if website: links_html.append(f'<a href="{website}" target="_blank" rel="noopener">Website</a>')
-if email:   links_html.append(f'<a href="mailto:{email}">Email</a>')
-if phone:   links_html.append(f'<a href="tel:{phone}">Call</a>')
-if contact: links_html.append(f'<a href="{contact}" target="_blank" rel="noopener">Contact</a>')
-
+            if website: links_html.append(f'<a href="{website}" target="_blank" rel="noopener">Website</a>')
+            if email:   links_html.append(f'<a href="mailto:{email}">Email</a>')
+            if phone:   links_html.append(f'<a href="tel:{phone}">Call</a>')
+            if contact: links_html.append(f'<a href="{contact}" target="_blank" rel="noopener">Contact</a>')
 if links_html:
     st.markdown('<div class="link-row">' + " ".join(links_html) + '</div>', unsafe_allow_html=True)
 
