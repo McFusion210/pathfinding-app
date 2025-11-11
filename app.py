@@ -20,9 +20,9 @@ st.markdown("""
 }
 html, body { background: var(--bg); }
 
-/* ✅ add some safe space at the very top */
+/* ✅ add safe top padding */
 [data-testid="stAppViewContainer"] .main .block-container {
-  padding-top: 1rem !important;   /* was 0rem */
+  padding-top: 1rem !important;
 }
 
 .header {
@@ -30,15 +30,61 @@ html, body { background: var(--bg); }
   background:#F6F8FA; border-bottom:2px solid #006FCF;
   padding:12px 20px;
   border-radius:8px;
-  margin: 8px 0 16px 0;           /* ✅ add top margin */
+  margin: 8px 0 16px 0;
 }
 
 .header h2 { margin:0; padding:0; color:#002D72; font-weight:700; }
 .header p  { margin:0; color:#333; font-size:15px; }
 
-/* … keep the rest of your styles … */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius:16px;
+  padding:16px;
+  box-shadow:0 1px 2px rgba(0,0,0,0.04);
+  margin-bottom:16px;
+}
+
+.badge { display:inline-block; font-size:12px; padding:4px 8px; border-radius:999px; margin-bottom:8px; }
+.badge.open { background:#E6F4EA; color:#0F5132; }
+.badge.closed { background:#FDECEE; color:#842029; }
+
+.org { color:var(--muted); margin-bottom:8px; }
+.tags { color:var(--muted); font-size:13px; margin-bottom:6px; }
+.placeholder { color:#8893a0; font-style:italic; }
+
+.actions { display:flex; align-items:center; justify-content:space-between; margin-top:10px; }
+
+.btn-primary {
+  display:inline-block;
+  padding:8px 14px;
+  border-radius:12px;
+  background:var(--primary);
+  color:#fff;
+  text-decoration:none;
+}
+.btn-primary:hover { filter:brightness(0.95); }
+
+.small-links a {
+  font-size:13px;
+  color: var(--muted);
+  margin-right:10px;
+  text-decoration:none;
+}
+.small-links a:hover { text-decoration:underline; }
+
+.chips { margin: 10px 0 0 0; }
+.chipbtn > button {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 2px 10px;
+  font-size: 12px;
+  color: var(--muted);
+  background: #fff;
+}
 </style>
 """, unsafe_allow_html=True)
+
 
 
 .card {
