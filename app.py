@@ -5,13 +5,11 @@ import pandas as pd
 import streamlit as st
 from rapidfuzz import fuzz
 
-# ================= Page setup =================
 st.set_page_config(
     page_title="Alberta Pathfinding Tool – Small Business Supports",
     layout="wide"
 )
 
-# ---- Styles (GoA look) ----
 STYLE = """
 <style>
 :root {
@@ -52,6 +50,7 @@ HEADER = """
 </div>
 """
 st.markdown(HEADER, unsafe_allow_html=True)
+
 
 
 # ---- Header with embedded GoA logo ----
