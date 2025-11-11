@@ -9,6 +9,7 @@ st.set_page_config(
     page_title="Alberta Pathfinding Tool – Small Business Supports",
     layout="wide"
 )
+st.markdown("<style>div.block-container {padding-top: 0rem;}</style>", unsafe_allow_html=True)
 
 STYLE = """
 <style>
