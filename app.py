@@ -164,7 +164,7 @@ st.sidebar.header("Filters")
 
 REGION_CHOICES = ["Calgary","Edmonton","Rural Alberta","Canada"]
 FUNDING_TYPE_CHOICES = ["Grant","Loan","Financing","Subsidy","Tax Credit","Credit"]
-FUND_AMOUNT_CHOICES = ["Under $5K","$5K–$25K","$25K–$100K","$100K–$500K","$500K+","Unknown / Not stated"]
+FUND_AMOUNT_CHOICES = ["Under $5k","$5k–$25k","$25–$100k","$100K–$500K","$500K+","Unknown / Not stated"]
 
 def sb_multi(label, options, key_prefix):
     picked = set()
@@ -241,8 +241,14 @@ def apply_filters(df_in: pd.DataFrame) -> pd.DataFrame:
     out = out[fuzzy_mask(out, q, threshold=70)]
 
     # region — only if the mapped column truly exists (we created a filler if not)
-    if sel_regions:
-        out = out[out[COLS["REGION"]].apply(lambda v: any(region_match(v, r) for r in sel_regions))]
+    # region (guarded)
+if sel_regions and COLS["REGION"] in out.columns:
+    col = out[COLS["REGION"]].astype(str)
+    out = out[col.apply(lambda v: any(region_match(v, r) for r in sel_regions))]
+# absolute safety: create an empty region column if still missing
+if COLS["REGION"] not in df.columns:
+    df[COLS["REGION"]] = ""
+
 
     # funding amount
     if sel_famts:
