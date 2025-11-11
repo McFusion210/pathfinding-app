@@ -1,6 +1,6 @@
 # app.py — Alberta Pathfinding Tool (Streamlit)
-# Implements: EF inside cards, inline links + favourite, split Stage/Activity, no closed/paused filter,
-# last-checked in card, green "Operational" badge, resilient column mapping.
+# Cards: Eligibility, Funding, Website, Email, Phone, Favourite INSIDE the card.
+# Funding numbers auto-prefixed with $; split Stage/Activity; no closed/paused filter; Operational badge in green.
 
 import os, re
 from pathlib import Path
@@ -48,7 +48,7 @@ html, body, p, div, span { font-family: system-ui, -apple-system, Segoe UI, Robo
 .badge.open        { background:#EAF2FF; color:#003B95; border:1px solid #CFE1FF; }
 .badge.closed      { background:#FDECEE; color:#842029; border:1px solid #F5C2C7; }
 
-/* Info row right under the description */
+/* Info row inside card (under description) */
 .info-row{
   display:flex; align-items:center; gap:16px; flex-wrap:wrap;
   margin-top:10px; padding-top:10px; border-top:1px solid var(--border);
@@ -60,6 +60,7 @@ html, body, p, div, span { font-family: system-ui, -apple-system, Segoe UI, Robo
 .links a{ color: var(--link); text-decoration: underline; font-size: var(--fs-body); }
 .links a + a{ margin-left:12px; }
 
+/* favourite button small & inline */
 .info-right .stButton>button{
   padding:6px 10px; border:1px solid var(--border);
   border-radius:12px; background:#fff; font-size: var(--fs-body);
@@ -124,19 +125,26 @@ def parse_tags_field(s):
     parts = re.split(r"[;,/|]", s)
     return [p.strip().lower() for p in parts if p.strip()]
 
+# If original funding is a number/range, ensure $ is before each number
+def add_dollar_signs(text: str) -> str:
+    if not text: return text
+    if "unknown" in text.lower(): return text
+    # Add $ before any numeric token (handles 5K, 25K–100K, 100,000 etc.)
+    return re.sub(r'(?<!\\$)(\\d[\\d,\\.]*\\s*[KkMm]?)', r'$\\1', text)
+
 def funding_bucket(amount):
     s = str(amount or "").replace(",", "")
-    nums = re.findall(r"\d+\.?\d*", s)
+    nums = re.findall(r"\\d+\\.?\\d*", s)
     if not nums: return "Unknown / Not stated"
     try:
         val = float(nums[-1])
     except ValueError:
         return "Unknown / Not stated"
-    if val < 5000: return "Under $5K"
-    if val < 25000: return "$5K–$25K"
-    if val < 100000: return "$25K–$100K"
-    if val < 500000: return "$100K–$500K"
-    return "$500K+"
+    if val < 5000: return "Under 5K"
+    if val < 25000: return "5K–25K"
+    if val < 100000: return "25K–100K"
+    if val < 500000: return "100K–500K"
+    return "500K+"
 
 df["__funding_bucket"] = df[COLS["FUNDING"]].apply(funding_bucket)
 
@@ -169,7 +177,7 @@ st.sidebar.header("Filters")
 
 REGION_CHOICES = ["Calgary","Edmonton","Rural Alberta","Canada"]
 FUNDING_TYPE_CHOICES = ["Grant","Loan","Financing","Subsidy","Tax Credit","Credit"]
-FUND_AMOUNT_CHOICES = ["Under $5K","$5K–$25K","$25K–$100K","$100K–$500K","$500K+","Unknown / Not stated"]
+FUND_AMOUNT_CHOICES = ["Under 5K","5K–25K","25K–100K","100K–500K","500K+","Unknown / Not stated"]
 
 def sb_multi(label, options, key_prefix):
     picked = set()
@@ -230,7 +238,6 @@ def has_any_tag(s, choices_lower: set[str]) -> bool:
 
 def apply_filters(df_in: pd.DataFrame) -> pd.DataFrame:
     out = df_in.copy()
-
     # No status filter (always populate)
 
     # Search
@@ -294,7 +301,7 @@ for i, (_, row) in enumerate(filtered.iterrows(), 1):
     phone   = str(row.get(COLS["PHONE"]) or "").strip()
     key     = str(row.get(COLS["KEY"], f"k{i}"))
 
-    # Card header & description
+    # Card header & description (open tag kept until end)
     st.markdown(
         f"<div class='card'>"
         f"<span class='badge {badge_cls}'>{badge_label}</span>"
@@ -305,13 +312,16 @@ for i, (_, row) in enumerate(filtered.iterrows(), 1):
         unsafe_allow_html=True
     )
 
-    # Build Funding + Eligibility (omit if empty/unknown)
-    fund_line = ""
-    elig_line = ""
+    # Build Funding + Eligibility (omit if unknown/empty)
+    fund_label = ""
     if fund_bucket and fund_bucket.strip().lower() != UNKNOWN:
-        fund_line = f'<span class="kv"><strong>Funding:</strong> {fund_bucket}</span>'
+        fund_label = add_dollar_signs(fund_bucket)
+    fund_line = f'<span class="kv"><strong>Funding:</strong> {fund_label}</span>' if fund_label else ""
+
+    elig_line = ""
     if elig and elig.strip().lower() != UNKNOWN:
         elig_line = f'<span class="kv"><strong>Eligibility:</strong> {elig}</span>'
+
     left_html = " ".join(x for x in [fund_line, elig_line] if x) or "<span class='placeholder'>No additional details</span>"
 
     # Right side links
@@ -321,24 +331,27 @@ for i, (_, row) in enumerate(filtered.iterrows(), 1):
     if phone:   link_parts.append(f'<a href="tel:{phone}">Call</a>')
     links_html = f'<div class="links">{" ".join(link_parts)}</div>' if link_parts else ""
 
-    # Single info row: left (fund/elig) · right (links + favourite)
-    col_left, col_right = st.columns([0.68, 0.32], gap="small")
-    with col_left:
-        st.markdown(f'<div class="info-row"><div class="info-left">{left_html}</div>', unsafe_allow_html=True)
-    with col_right:
-        st.markdown(f'<div class="info-right">{links_html}', unsafe_allow_html=True)
-        fav_on = key in st.session_state.favorites
-        fav_label = "★ Favourite" if fav_on else "☆ Favourite"
-        clicked = st.button(fav_label, key=f"fav_{key}")
-        st.markdown("</div>", unsafe_allow_html=True)  # close .info-right
-        if clicked:
-            if fav_on:
-                st.session_state.favorites.remove(key)
-            else:
-                st.session_state.favorites.add(key)
-            st.experimental_rerun()
-    st.markdown("</div>", unsafe_allow_html=True)      # close .info-row
-    st.markdown("</div>", unsafe_allow_html=True)      # close .card
+    # Info row inside card: left + right (links + favourite button)
+    # Render left and right containers first
+    st.markdown(f"<div class='info-row'><div class='info-left'>{left_html}</div><div class='info-right'>", unsafe_allow_html=True)
+    # Put the links HTML
+    if links_html:
+        st.markdown(links_html, unsafe_allow_html=True)
+    # Favourite button inline
+    fav_on = key in st.session_state.favorites
+    fav_label = "★ Favourite" if fav_on else "☆ Favourite"
+    clicked = st.button(fav_label, key=f"fav_{key}")
+    st.markdown("</div></div>", unsafe_allow_html=True)  # close .info-right and .info-row
+
+    if clicked:
+        if fav_on:
+            st.session_state.favorites.remove(key)
+        else:
+            st.session_state.favorites.add(key)
+        st.experimental_rerun()
+
+    # Close card
+    st.markdown("</div>", unsafe_allow_html=True)
 
     # Optional expander if long description
     if len(desc_full) > 240:
