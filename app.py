@@ -366,14 +366,16 @@ ef_html = f"""
 <div class="ef"><strong>Funding:</strong> {fund if fund else '<span class="placeholder">Unknown / Not stated</span>'}</div>
 """
 st.markdown(ef_html, unsafe_allow_html=True)
+st.markdown("<div class='tags'>" + el + " &nbsp;&nbsp; " + fu + "</div>", unsafe_allow_html=True)
+
+if len(desc_full) > 240 or not elig or not fund:
+    with st.expander("More details"):
+        st.markdown(f"**Full description:** {desc_full}" if desc_full else "_No description available._")
+        st.markdown(f"**Eligibility:** {elig}" if elig else "_No eligibility details available._")
+        st.markdown(f"**Funding:** {fund}" if fund else "_No funding information available._")
 
 
-    if len(desc_full) > 240 or not elig or not fund:
-        with st.expander("More details"):
-            st.markdown(f"**Full description:** {desc_full}" if desc_full else "_No description available._")
-            st.markdown(f"**Eligibility:** {elig}" if elig else "_No eligibility details available._")
-            st.markdown(f"**Funding:** {fund}" if fund else "_No funding information available._")
-
+  
     left, right = st.columns([6,1])
     with left:
         clicked = False
