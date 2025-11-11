@@ -347,9 +347,13 @@ for i, (_, row) in enumerate(filtered.iterrows(), 1):
     elig = str(row[COLS["ELIG"]] or "").strip()
     fund = row.get("__funding_bucket") or ""
     fresh = freshness_label(row.get("__fresh_days"))
-    website = row.get(COLS["WEBSITE"]); email = row.get(COLS["EMAIL"]); phone = row.get(COLS["PHONE"]); contact = row.get(COLS["CONTACT"])
+    website = row.get(COLS["WEBSITE"])
+    email = row.get(COLS["EMAIL"])
+    phone = row.get(COLS["PHONE"])
+    contact = row.get(COLS["CONTACT"])
     key = str(row.get(COLS["KEY"], f"k{i}"))
 
+    # --- Card layout ---
     st.markdown(
         f"<div class='card'>"
         f"<span class='badge {status_cls}'>{row[COLS['STATUS']]}</span> "
@@ -360,47 +364,47 @@ for i, (_, row) in enumerate(filtered.iterrows(), 1):
         unsafe_allow_html=True
     )
 
-# compact eligibility / funding below description (consistent fonts)
-ef_html = f"""
-<div class="ef"><strong>Eligibility:</strong> {elig if elig else '<span class="placeholder">Not provided</span>'}</div>
-<div class="ef"><strong>Funding:</strong> {fund if fund else '<span class="placeholder">Unknown / Not stated</span>'}</div>
-"""
-st.markdown(ef_html, unsafe_allow_html=True)
-st.markdown("<div class='tags'>" + el + " &nbsp;&nbsp; " + fu + "</div>", unsafe_allow_html=True)
+    # --- Eligibility & funding (consistent font) ---
+    ef_html = f"""
+    <div class='ef'><strong>Eligibility:</strong> {elig if elig else '<span class="placeholder">Not provided</span>'}</div>
+    <div class='ef'><strong>Funding:</strong> {fund if fund else '<span class="placeholder">Unknown / Not stated</span>'}</div>
+    """
+    st.markdown(ef_html, unsafe_allow_html=True)
 
-if len(desc_full) > 240 or not elig or not fund:
-    with st.expander("More details"):
-        st.markdown(f"**Full description:** {desc_full}" if desc_full else "_No description available._")
-        st.markdown(f"**Eligibility:** {elig}" if elig else "_No eligibility details available._")
-        st.markdown(f"**Funding:** {fund}" if fund else "_No funding information available._")
+    # --- Expandable details if needed ---
+    if len(desc_full) > 240 or not elig or not fund:
+        with st.expander("More details"):
+            st.markdown(f"**Full description:** {desc_full}" if desc_full else "_No description available._")
+            st.markdown(f"**Eligibility:** {elig}" if elig else "_No eligibility details available._")
+            st.markdown(f"**Funding:** {fund}" if fund else "_No funding information available._")
 
+    # --- Bottom text hyperlinks (compact row) ---
+    links_html = []
+    if website:
+        links_html.append(f'<a href="{website}" target="_blank" rel="noopener">Website</a>')
+    if email:
+        links_html.append(f'<a href="mailto:{email}">Email</a>')
+    if phone:
+        links_html.append(f'<a href="tel:{phone}">Call</a>')
+    if contact:
+        links_html.append(f'<a href="{contact}" target="_blank" rel="noopener">Contact</a>')
 
-  
-    left, right = st.columns([6,1])
-    with left:
-        clicked = False
-       links_html = []
-            if website: links_html.append(f'<a href="{website}" target="_blank" rel="noopener">Website</a>')
-            if email:   links_html.append(f'<a href="mailto:{email}">Email</a>')
-            if phone:   links_html.append(f'<a href="tel:{phone}">Call</a>')
-            if contact: links_html.append(f'<a href="{contact}" target="_blank" rel="noopener">Contact</a>')
-if links_html:
-    st.markdown('<div class="link-row">' + " ".join(links_html) + '</div>', unsafe_allow_html=True)
+    if links_html:
+        st.markdown('<div class="link-row">' + " ".join(links_html) + '</div>', unsafe_allow_html=True)
 
-        if clicked: 
-            from pathlib import Path as _P
-            st.session_state["__clicked"] = True
-
-    with right:
-        if "favorites" not in st.session_state: st.session_state.favorites = set()
-        fav_on = key in st.session_state.favorites
-        label = "★" if fav_on else "☆"
-        if st.button(label, key=f"fav_{key}", help="Add/Remove favorite"):
-            if fav_on: st.session_state.favorites.remove(key)
-            else: st.session_state.favorites.add(key)
-            st.experimental_rerun()
+    # --- Favorite toggle button ---
+    fav_on = key in st.session_state.favorites
+    label = "★" if fav_on else "☆"
+    if st.button(label, key=f"fav_{key}", help="Add/Remove favorite"):
+        if fav_on:
+            st.session_state.favorites.remove(key)
+        else:
+            st.session_state.favorites.add(key)
+        log_event("favorite_toggle", key=key, added=(not fav_on))
+        st.experimental_rerun()
 
     st.markdown("</div>", unsafe_allow_html=True)
+
 
 # ================= Admin (gated) =================
 st.markdown("## Admin Insights")
