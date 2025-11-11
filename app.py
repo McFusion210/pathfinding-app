@@ -19,15 +19,27 @@ st.markdown("""
   --primary:#002D72; --primary-contrast:#FFFFFF; --border:#E3E7ED;
 }
 html, body { background: var(--bg); }
-div.block-container { padding-top: 0rem; }
+
+/* ✅ add some safe space at the very top */
+[data-testid="stAppViewContainer"] .main .block-container {
+  padding-top: 1rem !important;   /* was 0rem */
+}
 
 .header {
   display:flex; align-items:center; gap:14px;
   background:#F6F8FA; border-bottom:2px solid #006FCF;
-  padding:12px 20px; border-radius:8px; margin-bottom:16px;
+  padding:12px 20px;
+  border-radius:8px;
+  margin: 8px 0 16px 0;           /* ✅ add top margin */
 }
+
 .header h2 { margin:0; padding:0; color:#002D72; font-weight:700; }
-.header p { margin:0; color:#333; font-size:15px; }
+.header p  { margin:0; color:#333; font-size:15px; }
+
+/* … keep the rest of your styles … */
+</style>
+""", unsafe_allow_html=True)
+
 
 .card {
   background: var(--surface);
