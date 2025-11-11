@@ -1,5 +1,6 @@
 # app.py — Alberta Pathfinding Tool (Streamlit)
-# Clean rebuild: resilient column mapping, safe filters, tidy layout, bottom text links.
+# Implements: eligibility/funding inside cards (omit if unknown), bottom links + favourites, split Stage/Activity filters,
+# remove closed/paused filter, show Last Checked in card, green "Operational" badge.
 
 import os, re
 from datetime import datetime
@@ -38,18 +39,26 @@ html, body, p, div, span { font-family: system-ui, -apple-system, Segoe UI, Robo
   box-shadow:0 1px 2px rgba(0,0,0,0.04);
   margin-bottom:16px;
 }
-.badge { display:inline-block; font-size:12px; padding:4px 8px; border-radius:999px; margin-bottom:8px; }
-.badge.open { background:#E6F4EA; color:#0F5132; }
-.badge.closed { background:#FDECEE; color:#842029; }
+.title { margin:4px 0 6px 0; font-weight:800; color:#002D72; font-size: var(--fs-title); }
 .org { color:var(--muted); margin-bottom:8px; font-size: var(--fs-meta); }
-.tags { color:var(--muted); font-size: var(--fs-meta); margin-left:8px; }
+.meta { color:var(--muted); font-size: var(--fs-meta); margin-bottom:8px; }
 .placeholder { color:#8893a0; font-style:italic; }
-.ef { font-size: var(--fs-body); margin:6px 0 2px 0; }
+
+/* status badges */
+.badge { display:inline-block; font-size:12px; padding:4px 10px; border-radius:999px; margin-right:6px; }
+.badge.operational { background:#E6F4EA; color:#0F5132; border:1px solid #B7E1C4; }  /* bright green */
+.badge.open        { background:#EAF2FF; color:#003B95; border:1px solid #CFE1FF; }
+.badge.closed      { background:#FDECEE; color:#842029; border:1px solid #F5C2C7; }
+
+.ef { font-size: var(--fs-body); margin: 4px 0; }
 .ef strong { font-weight:700; }
 
 .link-row { display:flex; align-items:center; gap: 18px; margin-top: 10px; }
 .link-row a { color: var(--link); text-decoration: underline; font-size: var(--fs-body); }
-.title { margin:4px 0 6px 0; font-weight:800; color:#002D72; font-size: var(--fs-title); }
+.fav { margin-left:auto; }
+.fav button { border:1px solid var(--border); border-radius:12px; padding:4px 10px; background:#fff; }
+
+hr.div { border:none; border-top:1px solid var(--border); margin:10px 0; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -63,10 +72,8 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# ---------------------------- Config & Secrets ----------------------------
-ADMIN_PASS = st.secrets.get("APP_ADMIN_PASS", os.environ.get("APP_ADMIN_PASS", ""))  # optional
+# ---------------------------- Config ----------------------------
 DATA_FILE  = st.secrets.get("DATA_FILE", "Pathfinding_Master.xlsx")
-
 if not Path(DATA_FILE).exists():
     st.info("Upload **Pathfinding_Master.xlsx** to the repository root and rerun.")
     st.stop()
@@ -76,7 +83,6 @@ df = pd.read_excel(DATA_FILE)
 df.columns = [str(c).strip() for c in df.columns]
 
 def map_col(name_hint: str, fallbacks: list[str]) -> str | None:
-    """Find a column whose header contains name_hint (case-insensitive), else first fallback that exists."""
     for c in df.columns:
         if name_hint.lower() in str(c).lower():
             return c
@@ -97,19 +103,18 @@ COLS = {
     "TAGS":         map_col("meta", ["Meta Tags","Tags"]),
     "FUNDING":      map_col("funding amount", ["Funding Amount","Funding"]),
     "STATUS":       map_col("operational status", ["Operational Status","Status"]),
-    "CONTACT":      map_col("contact page", ["Contact Page (Derived)","Contact"]),
     "LAST_CHECKED": map_col("last checked", ["Last Checked (MT)","Last Checked"]),
     "KEY":          map_col("_key_norm", ["_key_norm","Key"]),
 }
 
-# ensure any missing referenced columns exist (as empty strings), so no KeyErrors
+# Ensure referenced columns exist
 for k, v in COLS.items():
     if v is None or v not in df.columns:
         new_name = f"__missing_{k}"
         df[new_name] = ""
         COLS[k] = new_name
 
-# helpers
+# Helpers
 def parse_tags_field(s):
     if not isinstance(s, str): return []
     parts = re.split(r"[;,/|]", s)
@@ -131,10 +136,6 @@ def funding_bucket(amount):
 
 df["__funding_bucket"] = df[COLS["FUNDING"]].apply(funding_bucket)
 
-def is_open(status):
-    s = str(status or "").lower()
-    return any(k in s for k in ["open", "active", "ongoing", "accepting", "rolling"])
-
 def days_since(date_str):
     try:
         d = pd.to_datetime(date_str, errors="coerce")
@@ -151,7 +152,7 @@ def freshness_label(days):
 
 df["__fresh_days"] = df[COLS["LAST_CHECKED"]].apply(days_since)
 
-# keys (fallback)
+# Key fallback
 if df[COLS["KEY"]].isna().any():
     df[COLS["KEY"]] = (
         df[COLS["PROGRAM_NAME"]].fillna("").astype(str).str.lower().str.replace(r"[^a-z0-9]+","",regex=True)
@@ -164,7 +165,7 @@ st.sidebar.header("Filters")
 
 REGION_CHOICES = ["Calgary","Edmonton","Rural Alberta","Canada"]
 FUNDING_TYPE_CHOICES = ["Grant","Loan","Financing","Subsidy","Tax Credit","Credit"]
-FUND_AMOUNT_CHOICES = ["Under $5k","$5k–$25k","$25–$100k","$100K–$500K","$500K+","Unknown / Not stated"]
+FUND_AMOUNT_CHOICES = ["Under $5K","$5K–$25K","$25K–$100K","$100K–$500K","$500K+","Unknown / Not stated"]
 
 def sb_multi(label, options, key_prefix):
     picked = set()
@@ -178,7 +179,7 @@ sel_regions = sb_multi("Region", REGION_CHOICES, "region")
 sel_ftypes  = sb_multi("Funding (Type)", FUNDING_TYPE_CHOICES, "ftype")
 sel_famts   = sb_multi("Funding (Amount)", FUND_AMOUNT_CHOICES, "famt")
 
-# dynamic tag filters (optional: Group/Sector/Stage/Supports) — safe even if TAGS missing/empty
+# Split Stage vs Activity from tags
 def tags_by_category(df_in, cat_keywords):
     result = set()
     for s in df_in[COLS["TAGS"]].dropna().astype(str):
@@ -188,21 +189,15 @@ def tags_by_category(df_in, cat_keywords):
                 result.add(t)
     return sorted(result)
 
-group_tags   = tags_by_category(df, ["women","youth","indigenous","black","newcomer","immigrant","veteran","disab","bipoc","minority","racial","lgbt"])
-sector_tags  = tags_by_category(df, ["agri","energy","oil","clean","ict","tech","manufact","food","construct","transport","tourism","life","forestry","mining","creative","retail","aero"])
-stage_tags   = tags_by_category(df, ["startup","scale","export","research","training","innovation"])
-support_tags = tags_by_category(df, ["mentor","advis","coach","accelerator","workshop","network"])
+stage_tags    = tags_by_category(df, ["startup","scale","scaleup"])
+activity_tags = tags_by_category(df, ["export","research","training","innovation","cohort","workshop","mentorship","mentor","accelerator","advis","advisory","coaching","network"])
 
-sel_groups   = sb_multi("Audience / Priority", [t.title() for t in group_tags], "group")
-sel_sectors  = sb_multi("Sector / Industry",  [t.title() for t in sector_tags], "sector")
-sel_stage    = sb_multi("Business Stage / Activity", [t.title() for t in stage_tags], "stage")
-sel_supports = sb_multi("Supports", [t.title() for t in support_tags], "support")
+sel_stage    = sb_multi("Business Stage", [t.title() for t in stage_tags], "stage")
+sel_activity = sb_multi("Activity",       [t.title() for t in activity_tags], "activity")
 
 q = st.text_input("🔍 Search programs", "")
 
-include_closed = st.checkbox("Include Closed / Paused", value=False)
-
-# ---------------------------- Filter Logic (resilient) ----------------------------
+# ---------------------------- Filter Logic ----------------------------
 def fuzzy_mask(df_in, q_text, threshold=70):
     if not q_text: return pd.Series([True]*len(df_in), index=df_in.index)
     cols = [COLS["PROGRAM_NAME"], COLS["ORG_NAME"], COLS["DESC"], COLS["ELIG"], COLS["TAGS"]]
@@ -213,7 +208,6 @@ def fuzzy_mask(df_in, q_text, threshold=70):
     return pd.Series(out, index=df_in.index)
 
 def region_match(region_value: str, selected: str) -> bool:
-    """Map textual region to buckets; robust to missing/unknown."""
     if not selected or selected == "All Regions": return True
     if not isinstance(region_value, str): return False
     v = region_value.lower()
@@ -233,14 +227,12 @@ def has_any_tag(s, choices_lower: set[str]) -> bool:
 def apply_filters(df_in: pd.DataFrame) -> pd.DataFrame:
     out = df_in.copy()
 
-    # status
-    if not include_closed:
-        out = out[out[COLS["STATUS"]].apply(is_open)]
+    # no status filter (always populate)
 
     # search
     out = out[fuzzy_mask(out, q, threshold=70)]
 
-    # region (guarded + safe)
+    # region (guarded)
     if sel_regions and COLS["REGION"] in out.columns:
         col = out[COLS["REGION"]].astype(str)
         out = out[col.apply(lambda v: any(region_match(v, r) for r in sel_regions))]
@@ -254,124 +246,96 @@ def apply_filters(df_in: pd.DataFrame) -> pd.DataFrame:
         ft_lower = {t.lower() for t in sel_ftypes}
         out = out[out[COLS["TAGS"]].fillna("").apply(lambda s: has_any_tag(s, ft_lower))]
 
-    # dynamic tag buckets
-    if sel_groups:
-        grp_lower = {t.lower() for t in sel_groups}
-        out = out[out[COLS["TAGS"]].fillna("").apply(lambda s: has_any_tag(s, grp_lower))]
-    if sel_sectors:
-        sec_lower = {t.lower() for t in sel_sectors}
-        out = out[out[COLS["TAGS"]].fillna("").apply(lambda s: has_any_tag(s, sec_lower))]
+    # stage and activity (separate)
     if sel_stage:
         stg_lower = {t.lower() for t in sel_stage}
         out = out[out[COLS["TAGS"]].fillna("").apply(lambda s: has_any_tag(s, stg_lower))]
-    if sel_supports:
-        sup_lower = {t.lower() for t in sel_supports}
-        out = out[out[COLS["TAGS"]].fillna("").apply(lambda s: has_any_tag(s, sup_lower))]
+    if sel_activity:
+        act_lower = {t.lower() for t in sel_activity}
+        out = out[out[COLS["TAGS"]].fillna("").apply(lambda s: has_any_tag(s, act_lower))]
 
     return out
 
 filtered = apply_filters(df)
 
-# ---------------------------- Chips for Active Filters ----------------------------
-def render_chips():
-    chosen = []
-    for s in [sel_regions, sel_ftypes, sel_famts, sel_groups, sel_sectors, sel_stage, sel_supports]:
-        chosen.extend(sorted(list(s)))
-    if not chosen: return
-    st.write("")
-    cols = st.columns(min(6, len(chosen)))
-    for i, label in enumerate(chosen):
-        with cols[i % len(cols)]:
-            st.button(f"{label} ✕", key=f"chip_{i}")
-
-render_chips()
-
-# ---------------------------- Results & Cards ----------------------------
+# ---------------------------- Results ----------------------------
 st.markdown(f"### {len(filtered)} Programs Found")
 
 if "favorites" not in st.session_state:
     st.session_state.favorites = set()
 
+def status_class_and_label(s: str):
+    s_low = (s or "").lower()
+    if "operational" in s_low:
+        return "operational", s or "Operational"
+    if any(k in s_low for k in ["open","active","ongoing","accepting","rolling"]):
+        return "open", s or "Open"
+    return "closed", s or "Closed / Paused"
+
+UNKNOWN = "Unknown / Not stated"
+
 for i, (_, row) in enumerate(filtered.iterrows(), 1):
     name   = str(row[COLS["PROGRAM_NAME"]] or "")
     org    = str(row[COLS["ORG_NAME"]] or "")
-    status = str(row[COLS["STATUS"]] or "")
-    status_cls = "open" if is_open(status) else "closed"
+    status_raw = str(row[COLS["STATUS"]] or "")
+    badge_cls, badge_label = status_class_and_label(status_raw)
     desc_full = str(row[COLS["DESC"]] or "").strip()
     desc = (desc_full[:240] + "…") if len(desc_full) > 240 else desc_full
     elig = str(row[COLS["ELIG"]] or "").strip()
-    fund = str(row.get("__funding_bucket") or "")
+    fund_bucket = str(row.get("__funding_bucket") or "")
     fresh = freshness_label(row.get("__fresh_days"))
 
     website = str(row.get(COLS["WEBSITE"]) or "").strip()
     email   = str(row.get(COLS["EMAIL"]) or "").strip()
     phone   = str(row.get(COLS["PHONE"]) or "").strip()
-    contact = str(row.get(COLS["CONTACT"]) or "").strip()
     key     = str(row.get(COLS["KEY"], f"k{i}"))
 
     # Card header & summary
     st.markdown(
         f"<div class='card'>"
-        f"<span class='badge {status_cls}'>{status or '—'}</span>"
-        f"<span class='tags'>Last checked: {fresh}</span>"
+        f"<span class='badge {badge_cls}'>{badge_label}</span>"
+        f"<span class='meta'>Last checked: {fresh}</span>"
         f"<div class='title'>{name}</div>"
         f"<div class='org'>{org}</div>"
         f"<p>{desc or '<span class=\"placeholder\">No description provided.</span>'}</p>",
         unsafe_allow_html=True
     )
 
-    # Eligibility & Funding (text under description)
-    ef_html = f"""
-    <div class='ef'><strong>Eligibility:</strong> {elig if elig else '<span class="placeholder">Not provided</span>'}</div>
-    <div class='ef'><strong>Funding:</strong> {fund if fund else '<span class="placeholder">Unknown / Not stated</span>'}</div>
-    """
-    st.markdown(ef_html, unsafe_allow_html=True)
+    # Eligibility & Funding inside information box (omit if unknown/empty)
+    ef_lines = []
+    if elig and elig.lower() != "unknown / not stated":
+        ef_lines.append(f"<div class='ef'><strong>Eligibility:</strong> {elig}</div>")
+    if fund_bucket and fund_bucket.lower() != "unknown / not stated":
+        ef_lines.append(f"<div class='ef'><strong>Funding:</strong> {fund_bucket}</div>")
+    if ef_lines:
+        st.markdown("\n".join(ef_lines), unsafe_allow_html=True)
 
-    # Expandable details as needed
-    if len(desc_full) > 240 or not elig or not fund:
+    # Optional expander if long description
+    if len(desc_full) > 240:
         with st.expander("More details"):
-            st.markdown(f"**Full description:** {desc_full}" if desc_full else "_No description available._")
-            st.markdown(f"**Eligibility:** {elig}" if elig else "_No eligibility details available._")
-            st.markdown(f"**Funding:** {fund}" if fund else "_No funding information available._")
+            st.markdown(f"**Full description:** {desc_full}")
 
-    # Bottom text hyperlinks
-    links = []
-    if website: links.append(f'<a href="{website}" target="_blank" rel="noopener">Website</a>')
-    if email:   links.append(f'<a href="mailto:{email}">Email</a>')
-    if phone:   links.append(f'<a href="tel:{phone}">Call</a>')
-    if contact: links.append(f'<a href="{contact}" target="_blank" rel="noopener">Contact</a>')
-    if links:
-        st.markdown('<div class="link-row">' + " ".join(links) + '</div>', unsafe_allow_html=True)
+    # Divider
+    st.markdown("<hr class='div' />", unsafe_allow_html=True)
 
-    # Favorites toggle (simple)
-    fav_on = key in st.session_state.favorites
-    label = "★" if fav_on else "☆"
-    if st.button(label, key=f"fav_{key}", help="Add/Remove favorite"):
-        if fav_on:
-            st.session_state.favorites.remove(key)
-        else:
-            st.session_state.favorites.add(key)
-        st.experimental_rerun()
+    # Bottom text hyperlinks + favourites (Contact removed)
+    link_parts = []
+    if website: link_parts.append(f'<a href="{website}" target="_blank" rel="noopener">Website</a>')
+    if email:   link_parts.append(f'<a href="mailto:{email}">Email</a>')
+    if phone:   link_parts.append(f'<a href="tel:{phone}">Call</a>')
+
+    cols = st.columns([8, 1])
+    with cols[0]:
+        if link_parts:
+            st.markdown('<div class="link-row">' + " ".join(link_parts) + '</div>', unsafe_allow_html=True)
+    with cols[1]:
+        fav_on = key in st.session_state.favorites
+        fav_label = "★ Favourite" if fav_on else "☆ Favourite"
+        if st.button(fav_label, key=f"fav_{key}"):
+            if fav_on:
+                st.session_state.favorites.remove(key)
+            else:
+                st.session_state.favorites.add(key)
+            st.experimental_rerun()
 
     st.markdown("</div>", unsafe_allow_html=True)
-
-# ---------------------------- Admin (Optional) ----------------------------
-st.markdown("## Admin Insights")
-def admin_gate():
-    if not ADMIN_PASS:
-        st.info("Admin password not configured. Set APP_ADMIN_PASS in `.streamlit/secrets.toml`.")
-        return False
-    k = "__admin_ok"
-    if st.session_state.get(k): return True
-    pwd = st.text_input("Enter admin password", type="password")
-    if st.button("Unlock Admin"):
-        if pwd == ADMIN_PASS:
-            st.session_state[k] = True
-            st.success("Admin unlocked")
-            return True
-        else:
-            st.error("Incorrect password")
-    return st.session_state.get(k, False)
-
-if admin_gate():
-    st.write("🔎 Basic insights coming soon (favorites, top searches, most used filters).")
