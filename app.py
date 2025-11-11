@@ -54,7 +54,7 @@ st.markdown(HEADER, unsafe_allow_html=True)
 
 
 # ---- Header with embedded GoA logo ----
-st.markdown(\"\"\"
+st.markdown("""
 <div class="header">
   <img src="assets/GoA-logo.png" alt="Government of Alberta" style="height:48px;">
   <div>
@@ -62,7 +62,7 @@ st.markdown(\"\"\"
     <p>Small Business Supports & Funding Repository</p>
   </div>
 </div>
-\"\"\", unsafe_allow_html=True)
+""", unsafe_allow_html=True)
 
 # ================= Secrets & Admin =================
 ADMIN_PASS = st.secrets.get("APP_ADMIN_PASS", os.environ.get("APP_ADMIN_PASS", ""))
