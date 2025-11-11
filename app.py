@@ -240,15 +240,10 @@ def apply_filters(df_in: pd.DataFrame) -> pd.DataFrame:
     # search
     out = out[fuzzy_mask(out, q, threshold=70)]
 
-    # region — only if the mapped column truly exists (we created a filler if not)
-    # region (guarded)
-if sel_regions and COLS["REGION"] in out.columns:
-    col = out[COLS["REGION"]].astype(str)
-    out = out[col.apply(lambda v: any(region_match(v, r) for r in sel_regions))]
-# absolute safety: create an empty region column if still missing
-if COLS["REGION"] not in df.columns:
-    df[COLS["REGION"]] = ""
-
+    # region (guarded + safe)
+    if sel_regions and COLS["REGION"] in out.columns:
+        col = out[COLS["REGION"]].astype(str)
+        out = out[col.apply(lambda v: any(region_match(v, r) for r in sel_regions))]
 
     # funding amount
     if sel_famts:
@@ -259,7 +254,7 @@ if COLS["REGION"] not in df.columns:
         ft_lower = {t.lower() for t in sel_ftypes}
         out = out[out[COLS["TAGS"]].fillna("").apply(lambda s: has_any_tag(s, ft_lower))]
 
-    # dynamic tag buckets (these are title-cased in UI, convert back to lower for match)
+    # dynamic tag buckets
     if sel_groups:
         grp_lower = {t.lower() for t in sel_groups}
         out = out[out[COLS["TAGS"]].fillna("").apply(lambda s: has_any_tag(s, grp_lower))]
