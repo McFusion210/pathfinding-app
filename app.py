@@ -360,9 +360,13 @@ for i, (_, row) in enumerate(filtered.iterrows(), 1):
         unsafe_allow_html=True
     )
 
-    el = f"**Eligibility:** {elig}" if elig else "<span class='placeholder'>Eligibility not provided.</span>"
-    fu = f"**Funding:** {fund}" if fund else "<span class='placeholder'>Funding information not provided.</span>"
-    st.markdown("<div class='tags'>" + el + " &nbsp;&nbsp; " + fu + "</div>", unsafe_allow_html=True)
+# compact eligibility / funding below description (consistent fonts)
+ef_html = f"""
+<div class="ef"><strong>Eligibility:</strong> {elig if elig else '<span class="placeholder">Not provided</span>'}</div>
+<div class="ef"><strong>Funding:</strong> {fund if fund else '<span class="placeholder">Unknown / Not stated</span>'}</div>
+"""
+st.markdown(ef_html, unsafe_allow_html=True)
+
 
     if len(desc_full) > 240 or not elig or not fund:
         with st.expander("More details"):
@@ -373,17 +377,15 @@ for i, (_, row) in enumerate(filtered.iterrows(), 1):
     left, right = st.columns([6,1])
     with left:
         clicked = False
-        if website:
-            try:
-                clicked = st.link_button("Visit Website", website, type="primary", use_container_width=False)
-            except Exception:
-                st.markdown(f"<a class='btn-primary' href='{website}' target='_blank'>Visit Website</a>", unsafe_allow_html=True)
-        small = []
-        if email: small.append(f"<a href='mailto:{email}' target='_blank'>Email</a>")
-        if phone: small.append(f"<a href='tel:{phone}' target='_blank'>Call</a>")
-        if contact: small.append(f"<a href='{contact}' target='_blank'>Contact</a>")
-        if small:
-            st.markdown("<div class='small-links'>" + " · ".join(small) + "</div>", unsafe_allow_html=True)
+       links_html = []
+if website: links_html.append(f'<a href="{website}" target="_blank" rel="noopener">Website</a>')
+if email:   links_html.append(f'<a href="mailto:{email}">Email</a>')
+if phone:   links_html.append(f'<a href="tel:{phone}">Call</a>')
+if contact: links_html.append(f'<a href="{contact}" target="_blank" rel="noopener">Contact</a>')
+
+if links_html:
+    st.markdown('<div class="link-row">' + " ".join(links_html) + '</div>', unsafe_allow_html=True)
+
         if clicked: 
             from pathlib import Path as _P
             st.session_state["__clicked"] = True
