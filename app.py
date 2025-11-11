@@ -17,38 +17,24 @@ st.markdown("""
 :root {
   --bg:#F7F8FA; --surface:#FFFFFF; --text:#0B0C0C; --muted:#5F6B7A;
   --primary:#002D72; --primary-contrast:#FFFFFF; --border:#E3E7ED;
+  --font-body: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji";
 }
-
 html, body { background: var(--bg); }
-
-/* Safe top padding so header isn't cut off */
-[data-testid="stAppViewContainer"] .main .block-container {
-  padding-top: 1rem !important;
+body, p, div, span {
+  font-family: var(--font-body) !important;
+  color: var(--text);
 }
+
+/* safe top padding so header isn't clipped */
+[data-testid="stAppViewContainer"] .main .block-container { padding-top: 1rem !important; }
 
 .header {
-  display:flex;
-  align-items:center;
-  gap:14px;
-  background:#F6F8FA;
-  border-bottom:2px solid #006FCF;
-  padding:12px 20px;
-  border-radius:8px;
-  margin:8px 0 16px 0;
+  display:flex; align-items:center; gap:14px;
+  background:#F6F8FA; border-bottom:2px solid #006FCF;
+  padding:12px 20px; border-radius:8px; margin:8px 0 16px 0;
 }
-
-.header h2 {
-  margin:0;
-  padding:0;
-  color:#002D72;
-  font-weight:700;
-}
-
-.header p {
-  margin:0;
-  color:#333;
-  font-size:15px;
-}
+.header h2 { margin:0; padding:0; color:#002D72; font-weight:700; }
+.header p  { margin:0; color:#333; font-size:15px; }
 
 .card {
   background: var(--surface);
@@ -59,57 +45,22 @@ html, body { background: var(--bg); }
   margin-bottom:16px;
 }
 
-.badge {
-  display:inline-block;
-  font-size:12px;
-  padding:4px 8px;
-  border-radius:999px;
-  margin-bottom:8px;
-}
-
-.badge.open { background:#E6F4EA; color:#0F5132; }
-.badge.closed { background:#FDECEE; color:#842029; }
-
+.meta-line { color: var(--muted); font-size: 14px; margin-top: 2px; }
 .org { color:var(--muted); margin-bottom:8px; }
-.tags { color:var(--muted); font-size:13px; margin-bottom:6px; }
-.placeholder { color:#8893a0; font-style:italic; }
 
-.actions {
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  margin-top:10px;
+/* eligibility/funding block */
+.ef { color: var(--text); font-size: 16px; margin: 6px 0 2px 0; }
+.ef strong { font-weight:700; }
+
+/* bottom link row with tighter spacing */
+.link-row {
+  display:flex; align-items:center; gap: 18px;  /* tighter than default */
+  margin-top: 10px;
 }
-
-.btn-primary {
-  display:inline-block;
-  padding:8px 14px;
-  border-radius:12px;
-  background:var(--primary);
-  color:#fff;
-  text-decoration:none;
-}
-
-.btn-primary:hover { filter:brightness(0.95); }
-
-.small-links a {
-  font-size:13px;
-  color: var(--muted);
-  margin-right:10px;
-  text-decoration:none;
-}
-
-.small-links a:hover { text-decoration:underline; }
-
-.chips { margin: 10px 0 0 0; }
-
-.chipbtn > button {
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  padding: 2px 10px;
-  font-size: 12px;
-  color: var(--muted);
-  background: #fff;
+.link-row a {
+  color: #005AA0;
+  text-decoration: underline;
+  font-size: 16px;
 }
 </style>
 """, unsafe_allow_html=True)
