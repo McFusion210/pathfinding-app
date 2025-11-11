@@ -18,23 +18,37 @@ st.markdown("""
   --bg:#F7F8FA; --surface:#FFFFFF; --text:#0B0C0C; --muted:#5F6B7A;
   --primary:#002D72; --primary-contrast:#FFFFFF; --border:#E3E7ED;
 }
+
 html, body { background: var(--bg); }
 
-/* ✅ add safe top padding */
+/* Safe top padding so header isn't cut off */
 [data-testid="stAppViewContainer"] .main .block-container {
   padding-top: 1rem !important;
 }
 
 .header {
-  display:flex; align-items:center; gap:14px;
-  background:#F6F8FA; border-bottom:2px solid #006FCF;
+  display:flex;
+  align-items:center;
+  gap:14px;
+  background:#F6F8FA;
+  border-bottom:2px solid #006FCF;
   padding:12px 20px;
   border-radius:8px;
-  margin: 8px 0 16px 0;
+  margin:8px 0 16px 0;
 }
 
-.header h2 { margin:0; padding:0; color:#002D72; font-weight:700; }
-.header p  { margin:0; color:#333; font-size:15px; }
+.header h2 {
+  margin:0;
+  padding:0;
+  color:#002D72;
+  font-weight:700;
+}
+
+.header p {
+  margin:0;
+  color:#333;
+  font-size:15px;
+}
 
 .card {
   background: var(--surface);
@@ -45,7 +59,14 @@ html, body { background: var(--bg); }
   margin-bottom:16px;
 }
 
-.badge { display:inline-block; font-size:12px; padding:4px 8px; border-radius:999px; margin-bottom:8px; }
+.badge {
+  display:inline-block;
+  font-size:12px;
+  padding:4px 8px;
+  border-radius:999px;
+  margin-bottom:8px;
+}
+
 .badge.open { background:#E6F4EA; color:#0F5132; }
 .badge.closed { background:#FDECEE; color:#842029; }
 
@@ -53,7 +74,12 @@ html, body { background: var(--bg); }
 .tags { color:var(--muted); font-size:13px; margin-bottom:6px; }
 .placeholder { color:#8893a0; font-style:italic; }
 
-.actions { display:flex; align-items:center; justify-content:space-between; margin-top:10px; }
+.actions {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  margin-top:10px;
+}
 
 .btn-primary {
   display:inline-block;
@@ -63,6 +89,7 @@ html, body { background: var(--bg); }
   color:#fff;
   text-decoration:none;
 }
+
 .btn-primary:hover { filter:brightness(0.95); }
 
 .small-links a {
@@ -71,9 +98,11 @@ html, body { background: var(--bg); }
   margin-right:10px;
   text-decoration:none;
 }
+
 .small-links a:hover { text-decoration:underline; }
 
 .chips { margin: 10px 0 0 0; }
+
 .chipbtn > button {
   border: 1px solid var(--border);
   border-radius: 999px;
