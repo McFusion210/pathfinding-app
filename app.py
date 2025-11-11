@@ -1,4 +1,3 @@
-
 import os, re, math
 from datetime import datetime
 from pathlib import Path
@@ -7,20 +6,25 @@ import streamlit as st
 from rapidfuzz import fuzz
 
 # ================= Page setup =================
-st.set_page_config(page_title="Alberta Pathfinding Tool – Small Business Supports", layout="wide")
+st.set_page_config(
+    page_title="Alberta Pathfinding Tool – Small Business Supports",
+    layout="wide"
+)
 
 # ---- Styles (GoA look) ----
-st.markdown(\"\"\"
+STYLE = """
 <style>
 :root {
   --bg:#F7F8FA; --surface:#FFFFFF; --text:#0B0C0C; --muted:#5F6B7A;
   --primary:#002D72; --primary-contrast:#FFFFFF; --border:#E3E7ED;
 }
 html, body { background: var(--bg); }
-.header { display:flex; align-items:center; gap:14px; background:#F6F8FA; border-bottom:2px solid #006FCF; padding:12px 20px; border-radius:8px; margin-bottom:16px; }
+.header { display:flex; align-items:center; gap:14px; background:#F6F8FA;
+          border-bottom:2px solid #006FCF; padding:12px 20px; border-radius:8px; margin-bottom:16px; }
 .header h2 { margin:0; padding:0; color:#002D72; }
 .header p { margin:0; color:#333; font-size:15px; }
-.card { background: var(--surface); border:1px solid var(--border); border-radius:16px; padding:16px; box-shadow:0 1px 2px rgba(0,0,0,0.04); margin-bottom:16px; }
+.card { background: var(--surface); border:1px solid var(--border); border-radius:16px;
+        padding:16px; box-shadow:0 1px 2px rgba(0,0,0,0.04); margin-bottom:16px; }
 .badge { display:inline-block; font-size:12px; padding:4px 8px; border-radius:999px; margin-bottom:8px; }
 .badge.open { background:#E6F4EA; color:#0F5132; }
 .badge.closed { background:#FDECEE; color:#842029; }
@@ -35,7 +39,20 @@ html, body { background: var(--bg); }
 .chips { margin: 10px 0 0 0; }
 .chipbtn > button { border: 1px solid var(--border); border-radius: 999px; padding: 2px 10px; font-size: 12px; color: var(--muted); background: #fff; }
 </style>
-\"\"\", unsafe_allow_html=True)
+"""
+st.markdown(STYLE, unsafe_allow_html=True)
+
+HEADER = """
+<div class="header">
+  <img src="assets/GoA-logo.png" alt="Government of Alberta" style="height:48px;">
+  <div>
+    <h2>Alberta Pathfinding Tool</h2>
+    <p>Small Business Supports & Funding Repository</p>
+  </div>
+</div>
+"""
+st.markdown(HEADER, unsafe_allow_html=True)
+
 
 # ---- Header with embedded GoA logo ----
 st.markdown(\"\"\"
