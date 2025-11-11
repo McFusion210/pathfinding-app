@@ -11,50 +11,65 @@ st.set_page_config(
 )
 st.markdown("<style>div.block-container {padding-top: 0rem;}</style>", unsafe_allow_html=True)
 
-STYLE = """
+# ---- Styles (GoA look) ----
+st.markdown("""
 <style>
 :root {
   --bg:#F7F8FA; --surface:#FFFFFF; --text:#0B0C0C; --muted:#5F6B7A;
   --primary:#002D72; --primary-contrast:#FFFFFF; --border:#E3E7ED;
 }
 html, body { background: var(--bg); }
-.header { display:flex; align-items:center; gap:14px; background:#F6F8FA;
-          border-bottom:2px solid #006FCF; padding:12px 20px; border-radius:8px; margin-bottom:16px; }
-.header h2 { margin:0; padding:0; color:#002D72; }
+div.block-container { padding-top: 0rem; }
+
+.header {
+  display:flex; align-items:center; gap:14px;
+  background:#F6F8FA; border-bottom:2px solid #006FCF;
+  padding:12px 20px; border-radius:8px; margin-bottom:16px;
+}
+.header h2 { margin:0; padding:0; color:#002D72; font-weight:700; }
 .header p { margin:0; color:#333; font-size:15px; }
-.card { background: var(--surface); border:1px solid var(--border); border-radius:16px;
-        padding:16px; box-shadow:0 1px 2px rgba(0,0,0,0.04); margin-bottom:16px; }
+
+.card {
+  background: var(--surface);
+  border:1px solid var(--border);
+  border-radius:16px;
+  padding:16px;
+  box-shadow:0 1px 2px rgba(0,0,0,0.04);
+  margin-bottom:16px;
+}
 .badge { display:inline-block; font-size:12px; padding:4px 8px; border-radius:999px; margin-bottom:8px; }
 .badge.open { background:#E6F4EA; color:#0F5132; }
 .badge.closed { background:#FDECEE; color:#842029; }
+
 .org { color:var(--muted); margin-bottom:8px; }
 .tags { color:var(--muted); font-size:13px; margin-bottom:6px; }
 .placeholder { color:#8893a0; font-style:italic; }
+
 .actions { display:flex; align-items:center; justify-content:space-between; margin-top:10px; }
-.btn-primary { display:inline-block; padding:8px 14px; border-radius:12px; background:var(--primary); color:#fff; text-decoration:none; }
+.btn-primary {
+  display:inline-block; padding:8px 14px; border-radius:12px;
+  background:var(--primary); color:#fff; text-decoration:none;
+}
 .btn-primary:hover { filter:brightness(0.95); }
-.small-links a { font-size:13px; color: var(--muted); margin-right:10px; text-decoration:none; }
+
+.small-links a {
+  font-size:13px; color: var(--muted); margin-right:10px; text-decoration:none;
+}
 .small-links a:hover { text-decoration:underline; }
+
 .chips { margin: 10px 0 0 0; }
-.chipbtn > button { border: 1px solid var(--border); border-radius: 999px; padding: 2px 10px; font-size: 12px; color: var(--muted); background: #fff; }
+.chipbtn > button {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 2px 10px;
+  font-size: 12px;
+  color: var(--muted);
+  background: #fff;
+}
 </style>
-"""
-st.markdown(STYLE, unsafe_allow_html=True)
+""", unsafe_allow_html=True)
 
-HEADER = """
-<div class="header">
-  <img src="assets/GoA-logo.png" alt="Government of Alberta" style="height:48px;">
-  <div>
-    <h2>Alberta Pathfinding Tool</h2>
-    <p>Small Business Supports & Funding Repository</p>
-  </div>
-</div>
-"""
-st.markdown(HEADER, unsafe_allow_html=True)
-
-
-
-# ---- Header with embedded GoA logo ----
+# ---- Header ----
 st.markdown("""
 <div class="header">
   <img src="assets/GoA-logo.png" alt="Government of Alberta" style="height:48px;">
@@ -64,6 +79,7 @@ st.markdown("""
   </div>
 </div>
 """, unsafe_allow_html=True)
+
 
 # ================= Secrets & Admin =================
 ADMIN_PASS = st.secrets.get("APP_ADMIN_PASS", os.environ.get("APP_ADMIN_PASS", ""))
