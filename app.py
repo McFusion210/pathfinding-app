@@ -2,7 +2,7 @@
 # Features:
 # • Sticky GoA header with hover/focus states
 # • All info visually inside each card (using container + :has marker)
-# • Favourite inline with actions
+# • Favourite inline row with Website / Email / Call
 # • Smart punctuation preserved; bullets/emojis stripped; mojibake fixed
 # • GoA logo embedded (SVG/PNG). Optional GoA CSS injection if files exist
 # • ARIA: role="main" on results, “Skip to results” link
@@ -149,31 +149,30 @@ div[data-testid="stVerticalBlock"]:has(.pf-card-marker):hover{
 .kv strong{ font-weight:700; }
 
 /* Actions (links + favourite) */
-.actions{
-  display:flex; align-items:center; gap:12px; flex-wrap:wrap;
-  margin-top:6px; padding-top:6px; border-top:1px solid var(--border);
+.actions-links{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  margin-top:6px;
 }
-.actions a{
+.actions-links a{
   color:var(--link);
   text-decoration:underline;
   font-size:var(--fs-body);
   transition:opacity .15s ease, text-decoration-color .15s ease;
 }
-.actions a:hover{
+.actions-links a:hover{
   opacity:.85;
   text-decoration:underline;
 }
-.actions a:focus{
+.actions-links a:focus{
   outline:3px solid #feba35;
   outline-offset:2px;
   border-radius:4px;
 }
 
-/* Make favourite inline with links */
-.actions .stButton{
-  display:inline-block;
-}
-.actions .stButton>button{
+/* Favourite button styled like a link */
+.fav-container .stButton>button{
   background:none;
   border:none;
   padding:0;
@@ -182,15 +181,18 @@ div[data-testid="stVerticalBlock"]:has(.pf-card-marker):hover{
   text-decoration:underline;
   font-size:var(--fs-body);
   cursor:pointer;
-  transition:opacity .15s ease, text-decoration-color .15s ease;
 }
-.actions .stButton>button:hover{ opacity:.85; text-decoration:underline; }
-.actions .stButton>button:focus{
+.fav-container .stButton>button:hover{
+  opacity:.85;
+  text-decoration:underline;
+}
+.fav-container .stButton>button:focus{
   outline:3px solid #feba35;
   outline-offset:2px;
   border-radius:4px;
 }
-.actions .dot{ color:#9CA3AF; }
+
+.actions-dot{ color:#9CA3AF; }
 
 /* Pagination buttons (slight polish) */
 button[kind="primary"], .stButton>button{ border-radius:8px; }
@@ -621,7 +623,7 @@ selected_stage,  selected_activity                 = sel_stage, sel_activity
 if st.sidebar.button("Clear all filters"):
     for k in list(st.session_state.keys()):
         if any(k.startswith(prefix)
-               for prefix in ("region_","ftype_","famt_","stage_","activity_")):
+               for prefix in ("region_","ftype_","famt_","stage","activity_")):
             st.session_state[k] = False
     st.session_state["q"] = ""
     st.experimental_rerun()
@@ -757,6 +759,11 @@ else:
         website = str(row.get(COLS["WEBSITE"]) or "").strip()
         email   = str(row.get(COLS["EMAIL"])   or "").strip().lower()
         phone_raw   = str(row.get(COLS["PHONE"])   or "").strip()
+
+        # Hide call when phone is missing or says "not publicly listed"
+        if "not publicly listed" in phone_raw.lower():
+            phone_raw = ""
+
         phone_display, phone_tel = normalize_phone(phone_raw)
         key     = str(row.get(COLS["KEY"], f"k{i}"))
 
@@ -797,30 +804,34 @@ else:
 
             st.markdown(f"<div class='meta-info'>{meta_html}</div>", unsafe_allow_html=True)
 
-            # Actions row
-            parts = []
-            if website:
-                url = website if website.startswith(("http://","https://")) else f"https://{website}"
-                parts.append(f'<a class="goa-link" href="{url}" target="_blank" rel="noopener">Website</a>')
-            if email:
-                parts.append(f'<a class="goa-link" href="mailto:{email}">Email</a>')
-            if phone_display:
-                parts.append(f'<a class="goa-link" href="tel:{phone_tel}">Call ({phone_display})</a>')
+            # Actions row: links + Favourite in the same line via columns
+            left_col, right_col = st.columns([0.8, 0.2])
 
-            links_html = " <span class=\"dot\">•</span> ".join(parts) if parts else ""
+            with left_col:
+                parts = []
+                if website:
+                    url = website if website.startswith(("http://","https://")) else f"https://{website}"
+                    parts.append(f'<a class="goa-link" href="{url}" target="_blank" rel="noopener">Website</a>')
+                if email:
+                    parts.append(f'<a class="goa-link" href="mailto:{email}">Email</a>')
+                if phone_display:
+                    parts.append(f'<a class="goa-link" href="tel:{phone_tel}">Call ({phone_display})</a>')
 
-            st.markdown(f"<div class='actions goa-card__actions'>{links_html}", unsafe_allow_html=True)
+                if parts:
+                    links_html = ' <span class="actions-dot">•</span> '.join(parts)
+                    st.markdown(f"<div class='actions-links'>{links_html}</div>", unsafe_allow_html=True)
 
-            fav_on = key in st.session_state.favorites
-            fav_label = "★ Favourite" if fav_on else "☆ Favourite"
-            fav_clicked = st.button(fav_label, key=f"fav_{key}")
+            with right_col:
+                st.markdown("<div class='fav-container'>", unsafe_allow_html=True)
+                fav_on = key in st.session_state.favorites
+                fav_label = "★ Favourite" if fav_on else "☆ Favourite"
+                fav_clicked = st.button(fav_label, key=f"fav_{key}")
+                st.markdown("</div>", unsafe_allow_html=True)
 
-            if fav_clicked:
-                if fav_on: st.session_state.favorites.remove(key)
-                else:      st.session_state.favorites.add(key)
-                st.experimental_rerun()
-
-            st.markdown("</div>", unsafe_allow_html=True)  # close .actions div
+                if fav_clicked:
+                    if fav_on: st.session_state.favorites.remove(key)
+                    else:      st.session_state.favorites.add(key)
+                    st.experimental_rerun()
 
             if len(desc_full) > 240:
                 with st.expander("More details"):
