@@ -374,8 +374,10 @@ def normalize_activity_tag(tag: str) -> str:
 
 def normalize_stage_tag(tag: str) -> str:
     t = (tag or "").strip().lower()
-    for needle, canon in STAGE_NORMALIZATION_MAPitems():
-        if needle in t: return canon
+    # NOTE: the dot before "items()" is important
+    for needle, canon in STAGE_NORMALIZATION_MAP.items():
+        if needle in t:
+            return canon
     return ""
 
 def detect_funding_types_from_tags(s: str) -> set[str]:
