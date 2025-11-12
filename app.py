@@ -1,6 +1,6 @@
 import math
 import re
-from typing import List, Optional
+from typing import List
 
 import pandas as pd
 import streamlit as st
@@ -8,19 +8,19 @@ import streamlit as st
 # =========================
 # ---- APP CONFIG / CSS ----
 # =========================
+
 st.set_page_config(
     page_title="Alberta Pathfinding Tool",
     page_icon="✅",
     layout="wide",
 )
 
-GOA_PRIMARY = "#003A70"  # deep navy
+GOA_PRIMARY = "#003A70"
 CARD_BORDER = "#E6EAF0"
 
 st.markdown(
     f"""
     <style>
-        /* Sticky global header */
         .goa-sticky {{
             position: sticky;
             top: 0;
@@ -33,7 +33,6 @@ st.markdown(
         .goa-title {{ font-weight: 700; font-size: 20px; letter-spacing: .2px; }}
         .goa-subtitle {{ font-size: 12.5px; opacity: .9; margin-top: 2px; }}
 
-        /* Cards */
         .program-card {{
             background: #fff;
             border: 1px solid {CARD_BORDER};
@@ -64,15 +63,13 @@ st.markdown(
             color: #225c2f;
         }}
         .muted {{ color: #5b6b7c; font-size: 12.5px; }}
-
         .hr {{ height: 1px; background: {CARD_BORDER}; margin: 10px 0 14px 0; }}
 
-        /* Sidebar spacing tweak for compact look */
-        section[data-testid="stSidebar"] .stMarkdown p {{ margin-bottom: .35rem; }}
         .stMarkdown p {{ margin: .2rem 0 .6rem 0; }}
-
-        /* Link underline on hover only */
-        .stMarkdown a {{ text-decoration: none; border-bottom: 1px solid rgba(0,0,0,.14); }}
+        .stMarkdown a {{
+            text-decoration: none;
+            border-bottom: 1px solid rgba(0,0,0,.14);
+        }}
         .stMarkdown a:hover {{ border-bottom-color: rgba(0,0,0,.35); }}
     </style>
     """,
@@ -80,24 +77,20 @@ st.markdown(
 )
 
 # =========================
-# ------- HELPERS ---------
-# =========================
-def find_column(df: pd.DataFrame, aliases: List[str]) -> Optional[str]:
-    """Find a column whose name matches any alias (case-insensitive, ignores extra spaces)."""
-    target = {re.sub(r"\s+", " ", a).strip().lower() for a in aliases}
-    for col in df.columns:
-        key = re.sub(r"\s+", " ", str(col)).strip().lower()
-        if key in target:
-            return col
-    return None
-
-
-# =========================
 # ------- DATA LOAD -------
 # =========================
+
 @st.cache_data(show_spinner=False)
 def load_data() -> pd.DataFrame:
-    expected = [
+    """
+    Load repository from data/repository.csv or data/repository.xlsx.
+    Expects at least these columns (others are ignored):
+      Program Name, Program Description, Eligibility Description, Organization Name,
+      Funding Amount, Program Website, Email Address, Phone Number, Geographic Region,
+      Meta Tags, Last Checked (MT), Operational Status, _key_norm
+      Activity*, Audience*, Business Stage* (optional)
+    """
+    expected_base = [
         "Program Name",
         "Program Description",
         "Eligibility Description",
@@ -114,19 +107,23 @@ def load_data() -> pd.DataFrame:
     ]
 
     def normalize(df: pd.DataFrame) -> pd.DataFrame:
-        canon = {re.sub(r"\s+", " ", c).strip().lower(): c for c in expected}
+        # Soft rename: ignore spacing & case
+        canon = {re.sub(r"\s+", " ", c).strip().lower(): c for c in expected_base}
         rename = {}
         for c in df.columns:
-            lc = re.sub(r"\s+", " ", str(c)).strip().lower()
-            if lc in canon:
-                rename[c] = canon[lc]
+            key = re.sub(r"\s+", " ", str(c)).strip().lower()
+            if key in canon:
+                rename[c] = canon[key]
         df = df.rename(columns=rename)
-        for c in expected:
+
+        # Ensure all expected base columns exist
+        for c in expected_base:
             if c not in df.columns:
                 df[c] = ""
+
         return df
 
-    # Try CSV then XLSX in /data
+    # Try CSV then Excel in /data
     for path in ("data/repository.csv", "data/repository.xlsx"):
         try:
             df = pd.read_csv(path) if path.endswith(".csv") else pd.read_excel(path)
@@ -134,14 +131,20 @@ def load_data() -> pd.DataFrame:
         except Exception:
             continue
 
-    return pd.DataFrame(columns=expected)
+    return pd.DataFrame(columns=expected_base)
 
 
 df = load_data()
 
+# If your Excel has these exact names, they’ll be used automatically:
+ACTIVITY_COL = "Activity (MT)" if "Activity (MT)" in df.columns else None
+AUDIENCE_COL = "Audience (MT)" if "Audience (MT)" in df.columns else None
+STAGE_COL = "Business Stage (MT)" if "Business Stage (MT)" in df.columns else None
+
 # =========================
 # --------- STATE ---------
 # =========================
+
 if "favs" not in st.session_state:
     st.session_state.favs = set()
 if "page" not in st.session_state:
@@ -156,6 +159,7 @@ def toggle_fav(key_norm: str):
 # =========================
 # ------- HEADER UI -------
 # =========================
+
 st.markdown(
     """
     <div class="goa-sticky">
@@ -169,6 +173,7 @@ st.markdown(
 # =========================
 # ------- SIDEBAR ---------
 # =========================
+
 with st.sidebar:
     st.subheader("Filters")
 
@@ -186,17 +191,14 @@ with st.sidebar:
 
     st.markdown("---")
 
-    # Region
-    region_col = find_column(df, ["Geographic Region", "Region"])
-    selected_regions: List[str] = []
-    if region_col:
-        all_regions = sorted(
-            {r.strip() for r in ";".join(df[region_col].dropna().astype(str)).split(";") if r.strip()}
-        )
-        selected_regions = st.multiselect("Region", options=all_regions)
+    # Region filter
+    region_options = sorted(
+        {r.strip() for r in ";".join(df["Geographic Region"].dropna().astype(str)).split(";") if r.strip()}
+    )
+    selected_regions = st.multiselect("Region", options=region_options)
 
-    # Funding Type (derived from meta tags once)
-    def derive_type(row) -> List[str]:
+    # Funding Type (derived from Meta Tags)
+    def derive_funding_types(row) -> str:
         tags = str(row.get("Meta Tags", "")).lower()
         types: List[str] = []
         if "grant" in tags or "non-repayable" in tags:
@@ -209,70 +211,72 @@ with st.sidebar:
             types.append("Subsidy")
         if "tax" in tags:
             types.append("Tax Credit")
-        return types or ["Other"]
+        return ";".join(types) if types else "Other"
 
     if "Funding Type" not in df.columns:
-        df["Funding Type"] = df.apply(derive_type, axis=1)
+        df["Funding Type"] = df.apply(derive_funding_types, axis=1)
 
-    all_funding_types = sorted(
-        {t for lst in df["Funding Type"] for t in (lst if isinstance(lst, list) else [lst])}
+    funding_options = sorted(
+        {t.strip() for t in ";".join(df["Funding Type"].dropna().astype(str)).split(";") if t.strip()}
     )
-    selected_funding_types = st.multiselect("Funding (Type)", options=all_funding_types)
+    selected_funding_types = st.multiselect("Funding (Type)", options=funding_options)
 
     # Activity filter (if column exists)
-    activity_col = find_column(df, ["Activity", "Activity Tags", "Activity (MT)"])
-    selected_activities: List[str] = []
-    if activity_col:
-        all_activities = sorted(
-            {a.strip() for a in ";".join(df[activity_col].dropna().astype(str)).split(";") if a.strip()}
+    if ACTIVITY_COL:
+        activity_options = sorted(
+            {a.strip() for a in ";".join(df[ACTIVITY_COL].dropna().astype(str)).split(";") if a.strip()}
         )
-        selected_activities = st.multiselect("Activity", options=all_activities)
+        selected_activities = st.multiselect("Activity", options=activity_options)
+    else:
+        selected_activities = []
 
     # Audience filter
-    audience_col = find_column(df, ["Audience", "Target Audience", "Audience (MT)"])
-    selected_audiences: List[str] = []
-    if audience_col:
-        all_audiences = sorted(
-            {a.strip() for a in ";".join(df[audience_col].dropna().astype(str)).split(";") if a.strip()}
+    if AUDIENCE_COL:
+        audience_options = sorted(
+            {a.strip() for a in ";".join(df[AUDIENCE_COL].dropna().astype(str)).split(";") if a.strip()}
         )
-        selected_audiences = st.multiselect("Audience", options=all_audiences)
+        selected_audiences = st.multiselect("Audience", options=audience_options)
+    else:
+        selected_audiences = []
 
-    # Stage / Business Stage filter
-    stage_col = find_column(df, ["Business Stage", "Stage", "Business Stage (MT)"])
-    selected_stages: List[str] = []
-    if stage_col:
-        all_stages = sorted(
-            {s.strip() for s in ";".join(df[stage_col].dropna().astype(str)).split(";") if s.strip()}
+    # Business Stage filter
+    if STAGE_COL:
+        stage_options = sorted(
+            {s.strip() for s in ";".join(df[STAGE_COL].dropna().astype(str)).split(";") if s.strip()}
         )
-        selected_stages = st.multiselect("Business Stage", options=all_stages)
+        selected_stages = st.multiselect("Business Stage", options=stage_options)
+    else:
+        selected_stages = []
 
 # =========================
 # ------- SEARCH BAR ------
 # =========================
+
 st.caption("🔎 Search programs")
-query = st.text_input(
-    "Search programs",
+search_text = st.text_input(
+    "Search",
     placeholder="Try 'grant', 'mentorship', or 'startup'…",
-).strip()
+)
 st.caption("Tip: Search matches similar terms (e.g., typing mentor finds mentorship).")
 
 # =========================
 # ------- FILTER LOGIC ----
 # =========================
-def contains_any(value: str, selected: List[str]) -> bool:
-    """True if any selected option is present in a semicolon-separated cell."""
-    if not selected:
+
+def contains_any_from_cell(cell_value: str, wanted: List[str]) -> bool:
+    """Return True if any selection is present in a semicolon-separated cell."""
+    if not wanted:
         return True
-    parts = [p.strip() for p in str(value).split(";")]
-    return any(s in parts for s in selected)
+    parts = [p.strip() for p in str(cell_value).split(";") if p.strip()]
+    return any(w in parts for w in wanted)
 
-def search_filter(_df: pd.DataFrame) -> pd.DataFrame:
-    out = _df.copy()
+def apply_filters(df_in: pd.DataFrame) -> pd.DataFrame:
+    out = df_in.copy()
 
-    # TEXT SEARCH – simple substring across key fields (no regex; should “just work”)
-    if query:
-        q = query.lower()
-        search_cols = [
+    # 1) Search across key columns (simple contains, case-insensitive)
+    if search_text.strip():
+        q = search_text.strip().lower()
+        cols = [
             "Program Name",
             "Program Description",
             "Eligibility Description",
@@ -280,35 +284,32 @@ def search_filter(_df: pd.DataFrame) -> pd.DataFrame:
             "Meta Tags",
         ]
         mask = pd.Series(False, index=out.index)
-        for col in search_cols:
+        for col in cols:
             if col in out.columns:
                 mask |= out[col].astype(str).str.lower().str.contains(q, na=False)
         out = out[mask]
 
-    # REGION
-    if region_col and selected_regions:
-        out = out[out[region_col].apply(lambda v: contains_any(v, selected_regions))]
+    # 2) Region
+    if selected_regions:
+        out = out[out["Geographic Region"].apply(lambda v: contains_any_from_cell(v, selected_regions))]
 
-    # FUNDING TYPE
+    # 3) Funding Type
     if selected_funding_types:
-        def ft_match(val):
-            vals = val if isinstance(val, list) else [val]
-            return any(t in vals for t in selected_funding_types)
-        out = out[out["Funding Type"].apply(ft_match)]
+        out = out[out["Funding Type"].apply(lambda v: contains_any_from_cell(v, selected_funding_types))]
 
-    # ACTIVITY
-    if activity_col and selected_activities:
-        out = out[out[activity_col].apply(lambda v: contains_any(v, selected_activities))]
+    # 4) Activity
+    if ACTIVITY_COL and selected_activities:
+        out = out[out[ACTIVITY_COL].apply(lambda v: contains_any_from_cell(v, selected_activities))]
 
-    # AUDIENCE
-    if audience_col and selected_audiences:
-        out = out[out[audience_col].apply(lambda v: contains_any(v, selected_audiences))]
+    # 5) Audience
+    if AUDIENCE_COL and selected_audiences:
+        out = out[out[AUDIENCE_COL].apply(lambda v: contains_any_from_cell(v, selected_audiences))]
 
-    # STAGE
-    if stage_col and selected_stages:
-        out = out[ out[stage_col].apply(lambda v: contains_any(v, selected_stages)) ]
+    # 6) Stage
+    if STAGE_COL and selected_stages:
+        out = out[out[STAGE_COL].apply(lambda v: contains_any_from_cell(v, selected_stages))]
 
-    # SORT
+    # 7) Sort
     if sort_choice == "Program Name A–Z":
         out = out.sort_values("Program Name", na_position="last")
     elif sort_choice == "Program Name Z–A":
@@ -320,12 +321,14 @@ def search_filter(_df: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
-filtered = search_filter(df)
+filtered = apply_filters(df)
 
 # =========================
 # ------ SUMMARY ROW ------
 # =========================
+
 st.markdown(f"### {len(filtered):,} Programs Found")
+
 csv_bytes = filtered.drop(columns=["Funding Type"], errors="ignore").to_csv(index=False).encode("utf-8")
 st.download_button(
     "Download results (CSV)",
@@ -337,8 +340,10 @@ st.download_button(
 # =========================
 # -------- PAGINATION -----
 # =========================
+
 page = st.session_state.page
 max_page = max(1, math.ceil(len(filtered) / per_page))
+
 prev_col, spacer, next_col = st.columns([0.1, 0.8, 0.1])
 with prev_col:
     if st.button("◀ Prev", disabled=page <= 1, use_container_width=True):
@@ -356,6 +361,7 @@ page_df = filtered.iloc[start:end].reset_index(drop=True)
 # =========================
 # ---- RENDER PROGRAMS ----
 # =========================
+
 def fmt_money(val: str) -> str:
     s = str(val).strip()
     if not s or s.lower() in {"nan", "unknown", "not stated", "unknown / not stated"}:
@@ -391,17 +397,17 @@ for i, row in page_df.iterrows():
         unsafe_allow_html=True,
     )
 
-    # Program name + org
+    # Program name and org
     st.markdown(f"### {program_name}")
     if org:
         st.markdown(f"<span class='muted'>{org}</span>", unsafe_allow_html=True)
 
-    # Description
+    # Program description
     if program_desc:
         st.markdown('<div class="hr"></div>', unsafe_allow_html=True)
         st.markdown(program_desc)
 
-    # Eligibility & Funding
+    # Eligibility + Funding
     show_elig = eligibility and eligibility.lower() not in {"unknown", "not stated", "unknown / not stated"}
     show_fund = bool(funding)
     if show_elig or show_fund:
@@ -411,7 +417,7 @@ for i, row in page_df.iterrows():
         if show_fund:
             st.markdown(f"**Funding:** {funding}")
 
-    # Contact row
+    # Contact row (Website / Email / Call / Favourite)
     st.markdown('<div class="hr"></div>', unsafe_allow_html=True)
     c1, c2, c3, c4 = st.columns([1, 1, 1, 1])
     with c1:
