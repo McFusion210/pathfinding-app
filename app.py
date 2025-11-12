@@ -2,7 +2,9 @@
 # Features:
 # • Sticky GoA header with hover/focus states
 # • All info visually inside each card (using container + :has marker)
-# • Favourite inline row with Website / Email / Call
+# • Actions row: Website · Email · Call · ☆/★ Favourite inline
+# • Call label hides phone number in text but still uses tel: link
+# • Hide Call when phone is missing or "not publicly listed – use contact page"
 # • Smart punctuation preserved; bullets/emojis stripped; mojibake fixed
 # • GoA logo embedded (SVG/PNG). Optional GoA CSS injection if files exist
 # • ARIA: role="main" on results, “Skip to results” link
@@ -148,12 +150,18 @@ div[data-testid="stVerticalBlock"]:has(.pf-card-marker):hover{
 }
 .kv strong{ font-weight:700; }
 
-/* Actions (links + favourite) */
+/* Actions row: links + favourite inline */
+.actions-row{
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  gap:8px;
+  margin-top:6px;
+}
 .actions-links{
   display:flex;
   flex-wrap:wrap;
   gap:8px;
-  margin-top:6px;
 }
 .actions-links a{
   color:var(--link);
@@ -171,8 +179,11 @@ div[data-testid="stVerticalBlock"]:has(.pf-card-marker):hover{
   border-radius:4px;
 }
 
-/* Favourite button styled like a link */
-.fav-container .stButton>button{
+.actions-row .stButton{
+  margin:0;
+  padding:0;
+}
+.actions-row .stButton>button{
   background:none;
   border:none;
   padding:0;
@@ -182,11 +193,11 @@ div[data-testid="stVerticalBlock"]:has(.pf-card-marker):hover{
   font-size:var(--fs-body);
   cursor:pointer;
 }
-.fav-container .stButton>button:hover{
+.actions-row .stButton>button:hover{
   opacity:.85;
   text-decoration:underline;
 }
-.fav-container .stButton>button:focus{
+.actions-row .stButton>button:focus{
   outline:3px solid #feba35;
   outline-offset:2px;
   border-radius:4px;
@@ -760,8 +771,8 @@ else:
         email   = str(row.get(COLS["EMAIL"])   or "").strip().lower()
         phone_raw   = str(row.get(COLS["PHONE"])   or "").strip()
 
-        # Hide call when phone is missing or says "not publicly listed"
-        if "not publicly listed" in phone_raw.lower():
+        # Hide call when phone is missing or says "not publicly listed - use contact page"
+        if "not publicly listed" in phone_raw.lower() and "contact page" in phone_raw.lower():
             phone_raw = ""
 
         phone_display, phone_tel = normalize_phone(phone_raw)
@@ -804,34 +815,36 @@ else:
 
             st.markdown(f"<div class='meta-info'>{meta_html}</div>", unsafe_allow_html=True)
 
-            # Actions row: links + Favourite in the same line via columns
-            left_col, right_col = st.columns([0.8, 0.2])
+            # Actions row: Website · Email · Call · ☆/★ Favourite
+            st.markdown("<div class='actions-row'>", unsafe_allow_html=True)
 
-            with left_col:
-                parts = []
-                if website:
-                    url = website if website.startswith(("http://","https://")) else f"https://{website}"
-                    parts.append(f'<a class="goa-link" href="{url}" target="_blank" rel="noopener">Website</a>')
-                if email:
-                    parts.append(f'<a class="goa-link" href="mailto:{email}">Email</a>')
-                if phone_display:
-                    parts.append(f'<a class="goa-link" href="tel:{phone_tel}">Call ({phone_display})</a>')
+            parts = []
+            if website:
+                url = website if website.startswith(("http://","https://")) else f"https://{website}"
+                parts.append(f'<a class="goa-link" href="{url}" target="_blank" rel="noopener">Website</a>')
+            if email:
+                parts.append(f'<a class="goa-link" href="mailto:{email}">Email</a>')
+            if phone_display:
+                # Label only "Call" – number not shown
+                parts.append(f'<a class="goa-link" href="tel:{phone_tel}">Call</a>')
 
-                if parts:
-                    links_html = ' <span class="actions-dot">•</span> '.join(parts)
-                    st.markdown(f"<div class='actions-links'>{links_html}</div>", unsafe_allow_html=True)
+            if parts:
+                links_html = ' <span class="actions-dot">•</span> '.join(parts)
+                st.markdown(f"<div class='actions-links'>{links_html}</div>", unsafe_allow_html=True)
 
-            with right_col:
-                st.markdown("<div class='fav-container'>", unsafe_allow_html=True)
-                fav_on = key in st.session_state.favorites
-                fav_label = "★ Favourite" if fav_on else "☆ Favourite"
-                fav_clicked = st.button(fav_label, key=f"fav_{key}")
-                st.markdown("</div>", unsafe_allow_html=True)
+            # Favourite inline, styled like a link
+            fav_on = key in st.session_state.favorites
+            fav_label = "★ Favourite" if fav_on else "☆ Favourite"
+            fav_clicked = st.button(fav_label, key=f"fav_{key}")
 
-                if fav_clicked:
-                    if fav_on: st.session_state.favorites.remove(key)
-                    else:      st.session_state.favorites.add(key)
-                    st.experimental_rerun()
+            st.markdown("</div>", unsafe_allow_html=True)  # close actions-row
+
+            if fav_clicked:
+                if fav_on:
+                    st.session_state.favorites.remove(key)
+                else:
+                    st.session_state.favorites.add(key)
+                st.experimental_rerun()
 
             if len(desc_full) > 240:
                 with st.expander("More details"):
