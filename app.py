@@ -23,15 +23,22 @@ st.markdown("""
 :root{
   --bg:#FFFFFF; --surface:#FFFFFF; --text:#0A0A0A; --muted:#4B5563;
   --primary:#003366; --primary-2:#007FA3; --border:#D9DEE7; --link:#007FA3;
-  --fs-title:24px; --fs-body:16px; --fs-meta:14px;
+  --fs-title:24px; --fs-body:15px; --fs-meta:13px;
 }
 
 /* main spacing */
-[data-testid="stAppViewContainer"] .main .block-container{ padding-top:0 !important; }
+[data-testid="stAppViewContainer"] .main .block-container{
+  padding-top:0 !important;
+  max-width: 1100px;
+}
+
+/* base typography */
 html, body, p, div, span{
   font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Noto Sans", "Segoe UI Emoji";
   color:var(--text);
 }
+p{ margin:4px 0 4px 0; }
+small{ font-size:var(--fs-meta); }
 
 /* Skip link (keyboard users) */
 .skip-link {
@@ -47,12 +54,22 @@ html, body, p, div, span{
   position:sticky; top:0; z-index:9999;
   display:flex; align-items:center; gap:14px;
   background:var(--primary); color:#fff;
-  padding:14px 20px; border-radius:0; margin:0;
+  padding:14px 20px; border-radius:0; margin:0 -1.5rem 0 -1.5rem;
   border-bottom:2px solid #00294F;
   box-shadow:0 2px 8px rgba(0,0,0,.08);
 }
-.header.goa-header h2{ margin:0; color:#fff; font-weight:800; font-size:28px; letter-spacing:.2px; }
-.header.goa-header p { margin:0; color:#E6F2F8; font-size:15px; }
+.header.goa-header h2{
+  margin:0;
+  color:#fff;
+  font-weight:800;
+  font-size:28px;
+  letter-spacing:.2px;
+}
+.header.goa-header p{
+  margin:2px 0 0 0;
+  color:#E6F2F8;
+  font-size:15px;
+}
 
 /* Spacer so content never sits beneath header */
 .header-spacer{ height:12px; }
@@ -62,46 +79,102 @@ html, body, p, div, span{
   background:var(--surface);
   border:1px solid var(--border);
   border-radius:16px;
-  padding:16px;
-  box-shadow:0 1px 2px rgba(0,0,0,0.05);
-  margin-bottom:16px;
+  padding:12px 16px 12px 16px;
+  box-shadow:0 1px 2px rgba(0,0,0,0.04);
+  margin:8px 0 12px 0;
+  transition:box-shadow .15s ease, border-color .15s ease, transform .15s ease;
 }
-.title{ margin:4px 0 6px 0; font-weight:800; color:var(--primary); font-size:var(--fs-title); }
-.org,.meta{ color:var(--muted); font-size:var(--fs-meta); }
+.card.goa-card:hover{
+  box-shadow:0 4px 14px rgba(0,0,0,0.08);
+  border-color:#C3D0E6;
+  transform:translateY(-1px);
+}
+.title{
+  margin:4px 0 2px 0;
+  font-weight:800;
+  color:var(--primary);
+  font-size:var(--fs-title);
+}
+.org,.meta{
+  color:var(--muted);
+  font-size:var(--fs-meta);
+}
 .meta{ margin-left:8px; }
 .placeholder{ color:#7C8796; font-style:italic; }
 
 /* Status badges */
-.badge{ display:inline-block; font-size:12px; padding:4px 10px; border-radius:999px; margin-right:6px; }
-.badge.operational{ background:#DFF3E6; color:#0B3D2E; border:1px solid #A6D9BE; }
-.badge.open{ background:#E0EAFF; color:#062F6E; border:1px solid #B7CBFF; }
-.badge.closed{ background:#FBE5E8; color:#6D1B26; border:1px solid #F2BAC1; }
+.badge{
+  display:inline-block;
+  font-size:12px;
+  padding:3px 9px;
+  border-radius:999px;
+  margin-right:6px;
+}
+.badge.operational{
+  background:#DFF3E6;
+  color:#0B3D2E;
+  border:1px solid #A6D9BE;
+}
+.badge.open{
+  background:#E0EAFF;
+  color:#062F6E;
+  border:1px solid #B7CBFF;
+}
+.badge.closed{
+  background:#FBE5E8;
+  color:#6D1B26;
+  border:1px solid #F2BAC1;
+}
 
 /* Funding + Eligibility strip */
 .meta-info{
-  display:flex; gap:18px; flex-wrap:wrap;
-  margin:6px 0 8px 0; padding:8px 0; border-top:1px solid var(--border); border-bottom:1px solid var(--border);
+  display:flex;
+  gap:16px;
+  flex-wrap:wrap;
+  margin:6px 0 6px 0;
+  padding:6px 0;
+  border-top:1px solid var(--border);
+  border-bottom:1px solid var(--border);
 }
 .kv strong{ font-weight:700; }
 
 /* Actions (links + favourite) */
 .actions{
   display:flex; align-items:center; gap:12px; flex-wrap:wrap;
-  margin-top:10px; padding-top:10px; border-top:1px solid var(--border);
+  margin-top:6px; padding-top:6px; border-top:1px solid var(--border);
 }
 .actions a{
-  color:var(--link); text-decoration:underline; font-size:var(--fs-body);
+  color:var(--link);
+  text-decoration:underline;
+  font-size:var(--fs-body);
   transition:opacity .15s ease, text-decoration-color .15s ease;
 }
-.actions a:hover{ opacity:.8; text-decoration:underline; }
-.actions a:focus{ outline:3px solid #feba35; outline-offset:2px; border-radius:4px; }
+.actions a:hover{
+  opacity:.85;
+  text-decoration:underline;
+}
+.actions a:focus{
+  outline:3px solid #feba35;
+  outline-offset:2px;
+  border-radius:4px;
+}
 .actions .stButton>button{
-  background:none; border:none; padding:0; margin:0;
-  color:var(--link); text-decoration:underline; font-size:var(--fs-body); cursor:pointer;
+  background:none;
+  border:none;
+  padding:0;
+  margin:0;
+  color:var(--link);
+  text-decoration:underline;
+  font-size:var(--fs-body);
+  cursor:pointer;
   transition:opacity .15s ease, text-decoration-color .15s ease;
 }
-.actions .stButton>button:hover{ opacity:.8; text-decoration:underline; }
-.actions .stButton>button:focus{ outline:3px solid #feba35; outline-offset:2px; border-radius:4px; }
+.actions .stButton>button:hover{ opacity:.85; text-decoration:underline; }
+.actions .stButton>button:focus{
+  outline:3px solid #feba35;
+  outline-offset:2px;
+  border-radius:4px;
+}
 .actions .dot{ color:#9CA3AF; }
 
 /* Pagination buttons (slight polish) */
@@ -301,7 +374,7 @@ def normalize_activity_tag(tag: str) -> str:
 
 def normalize_stage_tag(tag: str) -> str:
     t = (tag or "").strip().lower()
-    for needle, canon in STAGE_NORMALIZATION_MAP.items():
+    for needle, canon in STAGE_NORMALIZATION_MAPitems():
         if needle in t: return canon
     return ""
 
@@ -544,16 +617,25 @@ if total == 0:
     st.info("No programs match your current filters. Try clearing filters or broadening your search.")
 else:
     subset = filtered.iloc[start:end].copy()
+
     for i, (_, row) in enumerate(subset.iterrows(), 1):
         name   = str(row[COLS["PROGRAM_NAME"]] or "")
         org    = str(row[COLS["ORG_NAME"]] or "")
         status_raw = str(row[COLS["STATUS"]] or "")
         s_low = (status_raw or "").lower()
-        badge_cls = "operational" if "operational" in s_low else ("open" if any(k in s_low for k in ["open","active","ongoing","accepting","rolling"]) else "closed")
-        badge_label = status_raw or ("Operational" if badge_cls=="operational" else ("Open" if badge_cls=="open" else "Closed / Paused"))
+
+        badge_cls = "operational" if "operational" in s_low else (
+            "open" if any(k in s_low for k in ["open","active","ongoing","accepting","rolling"]) else "closed"
+        )
+        badge_label = status_raw or (
+            "Operational" if badge_cls=="operational" else (
+                "Open" if badge_cls=="open" else "Closed / Paused"
+            )
+        )
 
         desc_full = sanitize_text_keep_smart(str(row[COLS["DESC"]] or "").strip())
         desc = (desc_full[:240] + "…") if len(desc_full) > 240 else desc_full
+
         elig = sanitize_text_keep_smart(str(row[COLS["ELIG"]] or "").strip())
         fund_bucket = str(row.get("__funding_bucket") or "")
         fresh_days = row.get("__fresh_days")
@@ -565,56 +647,76 @@ else:
         phone   = str(row.get(COLS["PHONE"]) or "").strip()
         key     = str(row.get(COLS["KEY"], f"k{i}"))
 
-        # Card header (status + title/org)
+        # OPEN CARD
+        st.markdown("<div class='card goa-card'>", unsafe_allow_html=True)
+
+        # Status + last checked + title/org
         st.markdown(
-            f"<div class='card goa-card'>"
-            f"<span class='badge {badge_cls}'>{badge_label}</span>"
-            f"<span class='meta'>Last checked: {fresh_date if fresh_date else '—'}"
-            f"{' (' + fresh_label + ')' if fresh_label != '—' else ''}</span>"
-            f"<div class='title'>{name}</div>"
-            f"<div class='org'>{org}</div>",
+            f"""
+            <span class='badge {badge_cls}'>{badge_label}</span>
+            <span class='meta'>Last checked: {fresh_date if fresh_date else '—'}
+            {f"({fresh_label})" if fresh_label != "—" else ""}</span>
+            <div class='title'>{name}</div>
+            <div class='org'>{org}</div>
+            """,
             unsafe_allow_html=True
         )
 
-        # Description directly under program name
+        # Description
         st.markdown(
             f"<p>{desc or '<span class=\"placeholder\">No description provided.</span>'}</p>",
             unsafe_allow_html=True
         )
 
-        # Funding + Eligibility BELOW description
+        # Funding + Eligibility strip
         fund_label = ""
         if fund_bucket and fund_bucket.strip().lower() != UNKNOWN:
             fund_label = add_dollar_signs(fund_bucket)
+
         fund_line = f'<span class="kv"><strong>Funding:</strong> {fund_label}</span>' if fund_label else ""
-        elig_line = f'<span class="kv"><strong>Eligibility:</strong> {elig}</span>' if (elig and elig.strip().lower() not in {"", "unknown / not stated", "n/a", "na"}) else ""
-        meta_html = " ".join(x for x in [fund_line, elig_line] if x) or "<span class='placeholder'>No additional details</span>"
+        elig_line = f'<span class="kv"><strong>Eligibility:</strong> {elig}</span>' if (
+            elig and elig.strip().lower() not in {"", "unknown / not stated", "n/a", "na"}
+        ) else ""
+
+        meta_html = " ".join(x for x in [fund_line, elig_line] if x) or \
+                    "<span class='placeholder'>No additional details</span>"
+
         st.markdown(f"<div class='meta-info'>{meta_html}</div>", unsafe_allow_html=True)
 
-        # Bottom actions bar INSIDE the card (links + inline Favourite)
+        # Actions (links + favourite) inside card
         parts = []
         if website:
-            url = website if website.startswith(('http://','https://')) else f'https://{website}'
-            parts.append(f'<a class=\"goa-link\" href=\"{url}\" target=\"_blank\" rel=\"noopener\">Website</a>')
+            url = website if website.startswith(("http://","https://")) else f"https://{website}"
+            parts.append(f'<a class="goa-link" href="{url}" target="_blank" rel="noopener">Website</a>')
         if email:
-            parts.append(f'<a class=\"goa-link\" href=\"mailto:{email}\">Email</a>')
+            parts.append(f'<a class="goa-link" href="mailto:{email}">Email</a>')
         if phone:
-            parts.append(f'<a class=\"goa-link\" href=\"tel:{phone}\">Call</a>')
+            parts.append(f'<a class="goa-link" href="tel:{phone}">Call</a>')
+
         links_html = " <span class='dot'>•</span> ".join(parts) if parts else ""
 
-        st.markdown(f"<div class='actions goa-card__actions'>{('<div class=\"links\">'+links_html+'</div>') if links_html else ''}", unsafe_allow_html=True)
+        st.markdown(
+            f"<div class='actions goa-card__actions'>{links_html}",
+            unsafe_allow_html=True
+        )
+
         fav_on = key in st.session_state.favorites
         fav_label = "★ Favourite" if fav_on else "☆ Favourite"
         fav_clicked = st.button(fav_label, key=f"fav_{key}")
-        st.markdown("</div>", unsafe_allow_html=True)  # close .actions
 
         if fav_clicked:
-            if fav_on: st.session_state.favorites.remove(key)
-            else:      st.session_state.favorites.add(key)
+            if fav_on:
+                st.session_state.favorites.remove(key)
+            else:
+                st.session_state.favorites.add(key)
             st.experimental_rerun()
 
-        st.markdown("</div>", unsafe_allow_html=True)  # close .card
+        st.markdown("</div>", unsafe_allow_html=True)  # close .actions
 
+        # Optional full description expander (still inside card)
         if len(desc_full) > 240:
             with st.expander("More details"):
                 st.markdown(f"**Full description:** {desc_full}")
+
+        # CLOSE CARD
+        st.markdown("</div>", unsafe_allow_html=True)
