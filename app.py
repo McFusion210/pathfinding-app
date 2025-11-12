@@ -7,7 +7,6 @@
 # • GoA logo embedded (SVG/PNG). Optional GoA CSS injection if files exist
 # • ARIA: role="main" on results, “Skip to results” link
 # • Empty-state message, chips, pagination, sorting
-# • Applies GoA component class names where helpful
 
 import re, base64
 from pathlib import Path
@@ -84,7 +83,8 @@ small{ font-size:var(--fs-meta); }
   display:none;
 }
 
-div[data-testid="stVerticalBlock"]:has(> .pf-card-marker){
+/* Use :has(.pf-card-marker) (descendant), not direct child */
+div[data-testid="stVerticalBlock"]:has(.pf-card-marker){
   background:var(--surface);
   border:1px solid var(--border);
   border-radius:16px;
@@ -93,7 +93,7 @@ div[data-testid="stVerticalBlock"]:has(> .pf-card-marker){
   margin:8px 0 12px 0;
   transition:box-shadow .15s ease, border-color .15s ease, transform .15s ease;
 }
-div[data-testid="stVerticalBlock"]:has(> .pf-card-marker):hover{
+div[data-testid="stVerticalBlock"]:has(.pf-card-marker):hover{
   box-shadow:0 4px 14px rgba(0,0,0,0.08);
   border-color:#C3D0E6;
   transform:translateY(-1px);
@@ -167,6 +167,11 @@ div[data-testid="stVerticalBlock"]:has(> .pf-card-marker):hover{
   outline:3px solid #feba35;
   outline-offset:2px;
   border-radius:4px;
+}
+
+/* Make favourite inline with links */
+.actions .stButton{
+  display:inline-block;
 }
 .actions .stButton>button{
   background:none;
@@ -364,6 +369,24 @@ def freshness_label(days):
         return f"{days//30}mo ago"
     return f"{days//365}y ago"
 
+# Phone normalizer
+def normalize_phone(phone: str):
+    """Return (display, tel) where display is XXX-XXX-XXXX and tel is +1XXXXXXXXXX."""
+    if not phone:
+        return "", ""
+    digits = re.sub(r"\D", "", phone)
+    if len(digits) == 11 and digits.startswith("1"):
+        country = "1"
+        digits = digits[1:]
+    elif len(digits) == 10:
+        country = "1"
+    else:
+        # Fallback: show original, use raw digits for tel if present
+        return phone, (digits or phone)
+    display = f"{digits[0:3]}-{digits[3:6]}-{digits[6:10]}"
+    tel = f"+{country}{digits}"
+    return display, tel
+
 # ---------------------------- Normalization ----------------------------
 ACTIVITY_NORMALIZATION_MAP = {
     "mentor":"Mentorship","mentorship":"Mentorship","mentoring":"Mentorship",
@@ -538,7 +561,7 @@ st.caption("Tip: Search matches similar terms (e.g., typing **mentor** finds **m
 all_activity_norm = sorted({v for S in df["__activity_norm_set"] for v in S})
 all_stage_norm    = sorted({v for S in df["__stage_norm_set"]    for v in S})
 
-selected_regions  = {opt for opt in REGION_CHOICES      if st.session_state.get(f"region_{opt}")}
+selected_regions  = {opt for opt in REGION_CHOICES       if st.session_state.get(f"region_{opt}")}
 selected_ftypes   = {opt for opt in FUNDING_TYPE_CHOICES if st.session_state.get(f"ftype_{opt}")}
 selected_famts    = {opt for opt in FUND_AMOUNT_CHOICES  if st.session_state.get(f"famt_{opt}")}
 selected_stage    = {opt for opt in all_stage_norm       if st.session_state.get(f"stage_{opt}")}
@@ -593,7 +616,7 @@ sel_stage    = render_filter_checklist("Business Stage", all_stage_norm, stage_c
 sel_activity = render_filter_checklist("Activity", all_activity_norm, activity_counts, "activity")
 
 selected_regions, selected_ftypes, selected_famts = sel_regions, sel_ftypes, sel_famts
-selected_stage, selected_activity                 = sel_stage, sel_activity
+selected_stage,  selected_activity                 = sel_stage, sel_activity
 
 if st.sidebar.button("Clear all filters"):
     for k in list(st.session_state.keys()):
@@ -718,7 +741,7 @@ else:
             else ("Open" if badge_cls=="open" else "Closed / Paused")
         )
 
-        # ----- Description (with "pending verification" removed) -----
+        # Description (strip pending-verification text)
         raw_desc = str(row[COLS["DESC"]] or "").strip()
         if raw_desc.strip().lower() == "description pending verification from program website.":
             raw_desc = ""
@@ -733,7 +756,8 @@ else:
 
         website = str(row.get(COLS["WEBSITE"]) or "").strip()
         email   = str(row.get(COLS["EMAIL"])   or "").strip().lower()
-        phone   = str(row.get(COLS["PHONE"])   or "").strip()
+        phone_raw   = str(row.get(COLS["PHONE"])   or "").strip()
+        phone_display, phone_tel = normalize_phone(phone_raw)
         key     = str(row.get(COLS["KEY"], f"k{i}"))
 
         with st.container():
@@ -780,9 +804,10 @@ else:
                 parts.append(f'<a class="goa-link" href="{url}" target="_blank" rel="noopener">Website</a>')
             if email:
                 parts.append(f'<a class="goa-link" href="mailto:{email}">Email</a>')
-            if phone:
-                parts.append(f'<a class="goa-link" href="tel:{phone}">Call</a>')
-            links_html = " <span class='dot'>•</span> ".join(parts) if parts else ""
+            if phone_display:
+                parts.append(f'<a class="goa-link" href="tel:{phone_tel}">Call ({phone_display})</a>')
+
+            links_html = " <span class=\"dot\">•</span> ".join(parts) if parts else ""
 
             st.markdown(f"<div class='actions goa-card__actions'>{links_html}", unsafe_allow_html=True)
 
