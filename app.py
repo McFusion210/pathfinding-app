@@ -1,452 +1,623 @@
-import math
-import re
-from typing import List
+# app.py — Alberta Pathfinding Tool (Streamlit)
+# Features:
+# • Sticky GoA header with hover/focus states
+# • All info inside each card; Favourite inline with actions
+# • Smart punctuation preserved; bullets/emojis stripped; mojibake fixed
+# • GoA logo embedded (SVG/PNG). Optional GoA CSS injection if files exist
+# • ARIA: role="main" on results, “Skip to results” link
+# • Empty-state message, chips, pagination, sorting
+# • Applies GoA component classes when available (goa-header, goa-card, goa-searchresults)
 
+import re, base64
+from pathlib import Path
 import pandas as pd
 import streamlit as st
+from rapidfuzz import fuzz
 
-# =========================
-# ---- APP CONFIG / CSS ----
-# =========================
+# ---------------------------- Page ----------------------------
+st.set_page_config(page_title="Alberta Pathfinding Tool – Small Business Supports", layout="wide")
 
-st.set_page_config(
-    page_title="Alberta Pathfinding Tool",
-    page_icon="✅",
-    layout="wide",
-)
+# ---------------------------- Styles (fallbacks if GoA CSS not present) ----------------------------
+st.markdown("""
+<style>
+:root{
+  --bg:#FFFFFF; --surface:#FFFFFF; --text:#0A0A0A; --muted:#4B5563;
+  --primary:#003366; --primary-2:#007FA3; --border:#D9DEE7; --link:#007FA3;
+  --fs-title:24px; --fs-body:16px; --fs-meta:14px;
+}
 
-GOA_PRIMARY = "#003A70"
-CARD_BORDER = "#E6EAF0"
+/* main spacing */
+[data-testid="stAppViewContainer"] .main .block-container{ padding-top:0 !important; }
+html, body, p, div, span{
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Noto Sans", "Segoe UI Emoji";
+  color:var(--text);
+}
 
-st.markdown(
-    f"""
-    <style>
-        .goa-sticky {{
-            position: sticky;
-            top: 0;
-            z-index: 999;
-            background: {GOA_PRIMARY};
-            color: white;
-            padding: 14px 18px;
-            border-bottom: 1px solid rgba(255,255,255,0.15);
-        }}
-        .goa-title {{ font-weight: 700; font-size: 20px; letter-spacing: .2px; }}
-        .goa-subtitle {{ font-size: 12.5px; opacity: .9; margin-top: 2px; }}
+/* Skip link (keyboard users) */
+.skip-link {
+  position:absolute; left:-9999px; top:auto; width:1px; height:1px; overflow:hidden;
+}
+.skip-link:focus {
+  position:fixed; left:16px; top:12px; width:auto; height:auto; padding:8px 10px;
+  background:#fff; color:#000; border:2px solid #feba35; border-radius:6px; z-index:10000;
+}
 
-        .program-card {{
-            background: #fff;
-            border: 1px solid {CARD_BORDER};
-            border-radius: 14px;
-            padding: 16px 18px;
-            transition: transform .06s ease, box-shadow .06s ease, border-color .06s ease;
-        }}
-        .program-card:hover {{
-            transform: translateY(-1px);
-            box-shadow: 0 6px 22px rgba(0,0,0,.06);
-            border-color: #d7dfea;
-        }}
+/* Sticky header (GoA band) */
+.header.goa-header{
+  position:sticky; top:0; z-index:9999;
+  display:flex; align-items:center; gap:14px;
+  background:var(--primary); color:#fff;
+  padding:14px 20px; border-radius:0; margin:0;
+  border-bottom:2px solid #00294F;
+  box-shadow:0 2px 8px rgba(0,0,0,.08);
+}
+.header.goa-header h2{ margin:0; color:#fff; font-weight:800; font-size:28px; letter-spacing:.2px; }
+.header.goa-header p { margin:0; color:#E6F2F8; font-size:15px; }
 
-        .badge {{
-            display: inline-block;
-            padding: 4px 8px;
-            border-radius: 999px;
-            font-size: 12px;
-            line-height: 1;
-            border: 1px solid #d9e3ef;
-            background: #f0f5fb;
-            color: #284b72;
-            margin-right: 8px;
-        }}
-        .badge-success {{
-            background: #eefbf0;
-            border-color: #d9f2df;
-            color: #225c2f;
-        }}
-        .muted {{ color: #5b6b7c; font-size: 12.5px; }}
-        .hr {{ height: 1px; background: {CARD_BORDER}; margin: 10px 0 14px 0; }}
+/* Spacer so content never sits beneath header */
+.header-spacer{ height:12px; }
 
-        .stMarkdown p {{ margin: .2rem 0 .6rem 0; }}
-        .stMarkdown a {{
-            text-decoration: none;
-            border-bottom: 1px solid rgba(0,0,0,.14);
-        }}
-        .stMarkdown a:hover {{ border-bottom-color: rgba(0,0,0,.35); }}
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
+/* Cards */
+.card.goa-card{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:16px;
+  padding:16px;
+  box-shadow:0 1px 2px rgba(0,0,0,0.05);
+  margin-bottom:16px;
+}
+.title{ margin:4px 0 6px 0; font-weight:800; color:var(--primary); font-size:var(--fs-title); }
+.org,.meta{ color:var(--muted); font-size:var(--fs-meta); }
+.meta{ margin-left:8px; }
+.placeholder{ color:#7C8796; font-style:italic; }
 
-# =========================
-# ------- DATA LOAD -------
-# =========================
+/* Status badges */
+.badge{ display:inline-block; font-size:12px; padding:4px 10px; border-radius:999px; margin-right:6px; }
+.badge.operational{ background:#DFF3E6; color:#0B3D2E; border:1px solid #A6D9BE; }
+.badge.open{ background:#E0EAFF; color:#062F6E; border:1px solid #B7CBFF; }
+.badge.closed{ background:#FBE5E8; color:#6D1B26; border:1px solid #F2BAC1; }
+
+/* Funding + Eligibility strip */
+.meta-info{
+  display:flex; gap:18px; flex-wrap:wrap;
+  margin:6px 0 8px 0; padding:8px 0; border-top:1px solid var(--border); border-bottom:1px solid var(--border);
+}
+.kv strong{ font-weight:700; }
+
+/* Actions (links + favourite) */
+.actions{
+  display:flex; align-items:center; gap:12px; flex-wrap:wrap;
+  margin-top:10px; padding-top:10px; border-top:1px solid var(--border);
+}
+.actions a{
+  color:var(--link); text-decoration:underline; font-size:var(--fs-body);
+  transition:opacity .15s ease, text-decoration-color .15s ease;
+}
+.actions a:hover{ opacity:.8; text-decoration:underline; }
+.actions a:focus{ outline:3px solid #feba35; outline-offset:2px; border-radius:4px; }
+.actions .stButton>button{
+  background:none; border:none; padding:0; margin:0;
+  color:var(--link); text-decoration:underline; font-size:var(--fs-body); cursor:pointer;
+  transition:opacity .15s ease, text-decoration-color .15s ease;
+}
+.actions .stButton>button:hover{ opacity:.8; text-decoration:underline; }
+.actions .stButton>button:focus{ outline:3px solid #feba35; outline-offset:2px; border-radius:4px; }
+.actions .dot{ color:#9CA3AF; }
+
+/* Pagination buttons (slight polish) */
+button[kind="primary"], .stButton>button{ border-radius:8px; }
+</style>
+""", unsafe_allow_html=True)
+
+# ---------------------------- Optional: inline GoA CSS if present ----------------------------
+def inline_gov_css():
+    # Inline these in order so global foundations load first, components last.
+    for fname in ("goa-application-layouts.css", "goa-application-layout.print.css", "goa-components.css"):
+        p = Path(fname)
+        if p.exists():
+            try:
+                st.markdown(f"<style>{p.read_text(encoding='utf-8')}</style>", unsafe_allow_html=True)
+            except Exception:
+                pass
+
+inline_gov_css()
+
+# ---------------------------- Header / Logo ----------------------------
+def embed_logo_html():
+    svg_path = Path("assets/GoA-logo.svg")
+    png_path = Path("assets/GoA-logo.png")
+    if svg_path.exists():
+        b64 = base64.b64encode(svg_path.read_bytes()).decode()
+        return f'<img src="data:image/svg+xml;base64,{b64}" alt="Government of Alberta" style="height:48px;">'
+    if png_path.exists():
+        b64 = base64.b64encode(png_path.read_bytes()).decode()
+        return f'<img src="data:image/png;base64,{b64}" alt="Government of Alberta" style="height:48px;">'
+    return '<div style="font-weight:700;font-size:18px">Government of Alberta</div>'
+
+# Skip link for keyboard users
+st.markdown('<a class="skip-link" href="#results-main">Skip to results</a>', unsafe_allow_html=True)
+
+st.markdown(f"""
+<div class="header goa-header goa-app-header">
+  {embed_logo_html()}
+  <div>
+    <h2>Alberta Pathfinding Tool</h2>
+    <p>Small Business Supports &amp; Funding Repository</p>
+  </div>
+</div>
+<div class="header-spacer"></div>
+""", unsafe_allow_html=True)
+
+# ---------------------------- Data ----------------------------
+DATA_FILE = st.secrets.get("DATA_FILE", "Pathfinding_Master.xlsx")
+if not Path(DATA_FILE).exists():
+    st.info("Upload **Pathfinding_Master.xlsx** to the project root and rerun.")
+    st.stop()
 
 @st.cache_data(show_spinner=False)
-def load_data() -> pd.DataFrame:
-    """
-    Load repository from data/repository.csv or data/repository.xlsx.
-    Expects at least these columns (others are ignored):
-      Program Name, Program Description, Eligibility Description, Organization Name,
-      Funding Amount, Program Website, Email Address, Phone Number, Geographic Region,
-      Meta Tags, Last Checked (MT), Operational Status, _key_norm
-      Activity*, Audience*, Business Stage* (optional)
-    """
-    expected_base = [
-        "Program Name",
-        "Program Description",
-        "Eligibility Description",
-        "Organization Name",
-        "Funding Amount",
-        "Program Website",
-        "Email Address",
-        "Phone Number",
-        "Geographic Region",
-        "Meta Tags",
-        "Last Checked (MT)",
-        "Operational Status",
-        "_key_norm",
-    ]
+def load_df(path):
+    df = pd.read_excel(path)
+    df.columns = [str(c).strip() for c in df.columns]
+    return df
 
-    def normalize(df: pd.DataFrame) -> pd.DataFrame:
-        # Soft rename: ignore spacing & case
-        canon = {re.sub(r"\s+", " ", c).strip().lower(): c for c in expected_base}
-        rename = {}
-        for c in df.columns:
-            key = re.sub(r"\s+", " ", str(c)).strip().lower()
-            if key in canon:
-                rename[c] = canon[key]
-        df = df.rename(columns=rename)
+df = load_df(DATA_FILE)
 
-        # Ensure all expected base columns exist
-        for c in expected_base:
-            if c not in df.columns:
-                df[c] = ""
+def map_col(df, name_hint: str, fallbacks: list[str]) -> str | None:
+    for c in df.columns:
+        if name_hint.lower() in str(c).lower():
+            return c
+    for fb in fallbacks:
+        if fb in df.columns:
+            return fb
+    return None
 
-        return df
+COLS = {
+    "PROGRAM_NAME": map_col(df, "program name", ["Program Name"]),
+    "ORG_NAME":     map_col(df, "organization name", ["Organization Name"]),
+    "DESC":         map_col(df, "program description", ["Program Description"]),
+    "ELIG":         map_col(df, "eligibility", ["Eligibility Description","Eligibility"]),
+    "EMAIL":        map_col(df, "email", ["Email Address"]),
+    "PHONE":        map_col(df, "phone", ["Phone Number"]),
+    "WEBSITE":      map_col(df, "website", ["Program Website","Website"]),
+    "REGION":       map_col(df, "region", ["Geographic Region","Region"]),
+    "TAGS":         map_col(df, "meta", ["Meta Tags","Tags"]),
+    "FUNDING":      map_col(df, "funding amount", ["Funding Amount","Funding"]),
+    "STATUS":       map_col(df, "operational status", ["Operational Status","Status"]),
+    "LAST_CHECKED": map_col(df, "last checked", ["Last Checked (MT)","Last Checked"]),
+    "KEY":          map_col(df, "_key_norm", ["_key_norm","Key"]),
+}
 
-    # Try CSV then Excel in /data
-    for path in ("data/repository.csv", "data/repository.xlsx"):
-        try:
-            df = pd.read_csv(path) if path.endswith(".csv") else pd.read_excel(path)
-            return normalize(df)
-        except Exception:
-            continue
+for k, v in COLS.items():
+    if v is None or v not in df.columns:
+        new_name = f"__missing_{k}"
+        df[new_name] = ""
+        COLS[k] = new_name
 
-    return pd.DataFrame(columns=expected_base)
+# ---------------------------- Text utilities ----------------------------
+def fix_mojibake(s: str) -> str:
+    if not isinstance(s, str): return ""
+    repl = {
+        "â€™": "’", "â€œ": "“", "â€\x9d": "”", "â€“": "–", "â€”": "—",
+        "Â": "", "â€": "”", "â€˜": "‘", "â€\x94": "—", "�": "",
+    }
+    for bad, good in repl.items():
+        s = s.replace(bad, good)
+    return s
 
+def sanitize_text_keep_smart(s: str) -> str:
+    """Remove bullets/emojis/dingbats; keep smart quotes and en/em dashes; fix mojibake."""
+    s = fix_mojibake(s or "")
+    for b in ["•","●","○","▪","▫","■","□","–·","‣"]:
+        s = s.replace(b, " ")
+    s = re.sub(r"[\U0001F300-\U0001FAFF]", " ", s)  # emojis
+    s = re.sub(r"[\u2600-\u26FF]", " ", s)          # misc symbols
+    s = re.sub(r"[\u2700-\u27BF]", " ", s)          # dingbats
+    s = re.sub(r"\s+", " ", s).strip()
+    return s
 
-df = load_data()
+URL_LIKE = re.compile(r"https?://|www\.|\.ca\b|\.com\b|\.org\b|\.net\b", re.I)
+NUMERICY = re.compile(r"^\d{1,4}$")
 
-# If your Excel has these exact names, they’ll be used automatically:
-ACTIVITY_COL = "Activity (MT)" if "Activity (MT)" in df.columns else None
-AUDIENCE_COL = "Audience (MT)" if "Audience (MT)" in df.columns else None
-STAGE_COL = "Business Stage (MT)" if "Business Stage (MT)" in df.columns else None
-
-# =========================
-# --------- STATE ---------
-# =========================
-
-if "favs" not in st.session_state:
-    st.session_state.favs = set()
-if "page" not in st.session_state:
-    st.session_state.page = 1
-
-def toggle_fav(key_norm: str):
-    if key_norm in st.session_state.favs:
-        st.session_state.favs.remove(key_norm)
-    else:
-        st.session_state.favs.add(key_norm)
-
-# =========================
-# ------- HEADER UI -------
-# =========================
-
-st.markdown(
-    """
-    <div class="goa-sticky">
-      <div class="goa-title">Alberta Pathfinding Tool</div>
-      <div class="goa-subtitle">Small Business Supports &amp; Funding Repository</div>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
-
-# =========================
-# ------- SIDEBAR ---------
-# =========================
-
-with st.sidebar:
-    st.subheader("Filters")
-
-    sort_choice = st.selectbox(
-        "Sort results by",
-        ["Relevance", "Program Name A–Z", "Program Name Z–A", "Last Checked (Newest)"],
-        index=0,
-    )
-
-    per_page = st.selectbox(
-        "Results per page",
-        [10, 25, 50, 100],
-        index=1,
-    )
-
-    st.markdown("---")
-
-    # Region filter
-    region_options = sorted(
-        {r.strip() for r in ";".join(df["Geographic Region"].dropna().astype(str)).split(";") if r.strip()}
-    )
-    selected_regions = st.multiselect("Region", options=region_options)
-
-    # Funding Type (derived from Meta Tags)
-    def derive_funding_types(row) -> str:
-        tags = str(row.get("Meta Tags", "")).lower()
-        types: List[str] = []
-        if "grant" in tags or "non-repayable" in tags:
-            types.append("Grant")
-        if "loan" in tags or "microloan" in tags:
-            types.append("Loan")
-        if "financing" in tags and "loan" not in types:
-            types.append("Financing")
-        if "subsidy" in tags:
-            types.append("Subsidy")
-        if "tax" in tags:
-            types.append("Tax Credit")
-        return ";".join(types) if types else "Other"
-
-    if "Funding Type" not in df.columns:
-        df["Funding Type"] = df.apply(derive_funding_types, axis=1)
-
-    funding_options = sorted(
-        {t.strip() for t in ";".join(df["Funding Type"].dropna().astype(str)).split(";") if t.strip()}
-    )
-    selected_funding_types = st.multiselect("Funding (Type)", options=funding_options)
-
-    # Activity filter (if column exists)
-    if ACTIVITY_COL:
-        activity_options = sorted(
-            {a.strip() for a in ";".join(df[ACTIVITY_COL].dropna().astype(str)).split(";") if a.strip()}
-        )
-        selected_activities = st.multiselect("Activity", options=activity_options)
-    else:
-        selected_activities = []
-
-    # Audience filter
-    if AUDIENCE_COL:
-        audience_options = sorted(
-            {a.strip() for a in ";".join(df[AUDIENCE_COL].dropna().astype(str)).split(";") if a.strip()}
-        )
-        selected_audiences = st.multiselect("Audience", options=audience_options)
-    else:
-        selected_audiences = []
-
-    # Business Stage filter
-    if STAGE_COL:
-        stage_options = sorted(
-            {s.strip() for s in ";".join(df[STAGE_COL].dropna().astype(str)).split(";") if s.strip()}
-        )
-        selected_stages = st.multiselect("Business Stage", options=stage_options)
-    else:
-        selected_stages = []
-
-# =========================
-# ------- SEARCH BAR ------
-# =========================
-
-st.caption("🔎 Search programs")
-search_text = st.text_input(
-    "Search",
-    placeholder="Try 'grant', 'mentorship', or 'startup'…",
-)
-st.caption("Tip: Search matches similar terms (e.g., typing mentor finds mentorship).")
-
-# =========================
-# ------- FILTER LOGIC ----
-# =========================
-
-def contains_any_from_cell(cell_value: str, wanted: List[str]) -> bool:
-    """Return True if any selection is present in a semicolon-separated cell."""
-    if not wanted:
-        return True
-    parts = [p.strip() for p in str(cell_value).split(";") if p.strip()]
-    return any(w in parts for w in wanted)
-
-def apply_filters(df_in: pd.DataFrame) -> pd.DataFrame:
-    out = df_in.copy()
-
-    # 1) Search across key columns (simple contains, case-insensitive)
-    if search_text.strip():
-        q = search_text.strip().lower()
-        cols = [
-            "Program Name",
-            "Program Description",
-            "Eligibility Description",
-            "Organization Name",
-            "Meta Tags",
-        ]
-        mask = pd.Series(False, index=out.index)
-        for col in cols:
-            if col in out.columns:
-                mask |= out[col].astype(str).str.lower().str.contains(q, na=False)
-        out = out[mask]
-
-    # 2) Region
-    if selected_regions:
-        out = out[out["Geographic Region"].apply(lambda v: contains_any_from_cell(v, selected_regions))]
-
-    # 3) Funding Type
-    if selected_funding_types:
-        out = out[out["Funding Type"].apply(lambda v: contains_any_from_cell(v, selected_funding_types))]
-
-    # 4) Activity
-    if ACTIVITY_COL and selected_activities:
-        out = out[out[ACTIVITY_COL].apply(lambda v: contains_any_from_cell(v, selected_activities))]
-
-    # 5) Audience
-    if AUDIENCE_COL and selected_audiences:
-        out = out[out[AUDIENCE_COL].apply(lambda v: contains_any_from_cell(v, selected_audiences))]
-
-    # 6) Stage
-    if STAGE_COL and selected_stages:
-        out = out[out[STAGE_COL].apply(lambda v: contains_any_from_cell(v, selected_stages))]
-
-    # 7) Sort
-    if sort_choice == "Program Name A–Z":
-        out = out.sort_values("Program Name", na_position="last")
-    elif sort_choice == "Program Name Z–A":
-        out = out.sort_values("Program Name", ascending=False, na_position="last")
-    elif sort_choice == "Last Checked (Newest)":
-        out["_lc"] = pd.to_datetime(out["Last Checked (MT)"], errors="coerce")
-        out = out.sort_values("_lc", ascending=False, na_position="last").drop(columns=["_lc"])
-
+def parse_tags_field_clean(s):
+    if not isinstance(s, str): return []
+    parts = re.split(r"[;,/|]", s)
+    out = []
+    for p in parts:
+        t = (p or "").strip().lower()
+        if not t: continue
+        if URL_LIKE.search(t): continue
+        if NUMERICY.match(t): continue
+        out.append(t)
     return out
 
+def add_dollar_signs(text: str) -> str:
+    if not text: return text
+    if "unknown" in text.lower(): return text
+    return re.sub(r'(?<!\$)(\d[\d,\.]*\s*[KkMm]?)', r'$\1', text)
+
+def funding_bucket(amount):
+    s = str(amount or "").replace(",", "")
+    nums = re.findall(r"\d+\.?\d*", s)
+    if not nums: return "Unknown / Not stated"
+    try:
+        val = float(nums[-1])
+    except ValueError:
+        return "Unknown / Not stated"
+    if val < 5000: return "Under 5K"
+    if val < 25000: return "5K–25K"
+    if val < 100000: return "25K–100K"
+    if val < 500000: return "100K–500K"
+    return "500K+"
+
+def days_since(date_str):
+    try:
+        d = pd.to_datetime(date_str, errors="coerce")
+        if pd.isna(d): return None, None
+        delta = (pd.Timestamp.utcnow().normalize() - d.normalize()).days
+        return delta, d.strftime("%Y-%m-%d")
+    except Exception:
+        return None, None
+
+def freshness_label(days):
+    if days is None: return "—"
+    if days <= 30:  return f"{days}d ago"
+    if days <= 180: return f"{days//30}mo ago"
+    return f"{days//365}y ago"
+
+# ---------------------------- Normalization ----------------------------
+ACTIVITY_NORMALIZATION_MAP = {
+    "mentor":"Mentorship","mentorship":"Mentorship","mentoring":"Mentorship",
+    "advis":"Advisory / Consulting","advisory":"Advisory / Consulting","advising":"Advisory / Consulting","advice":"Advisory / Consulting",
+    "coaching":"Coaching",
+    "accelerator":"Accelerator / Incubator","acceleration":"Accelerator / Incubator","incubator":"Accelerator / Incubator",
+    "innovation":"Innovation / R&D","research":"Innovation / R&D","r&d":"Innovation / R&D",
+    "export":"Export Readiness",
+    "network":"Networking / Peer Support","networking":"Networking / Peer Support","peer":"Networking / Peer Support",
+    "workshop":"Workshops / Training","workshops":"Workshops / Training","training":"Workshops / Training",
+    "cohort":"Cohort / Program Participation","program":"Cohort / Program Participation",
+}
+STAGE_NORMALIZATION_MAP = {
+    "startup":"Startup / Early Stage","start-up":"Startup / Early Stage","early":"Startup / Early Stage",
+    "pre-revenue":"Startup / Early Stage","pre revenue":"Startup / Early Stage","ideation":"Startup / Early Stage",
+    "prototype":"Startup / Early Stage","preseed":"Startup / Early Stage","pre-seed":"Startup / Early Stage","seed":"Startup / Early Stage",
+    "scaleup":"Growth / Scale","scale-up":"Growth / Scale","scale":"Growth / Scale","growth":"Growth / Scale",
+    "expand":"Growth / Scale","expansion":"Growth / Scale","commercializ":"Growth / Scale","market-entry":"Growth / Scale","market entry":"Growth / Scale",
+    "mature":"Mature / Established","established":"Mature / Established","existing":"Mature / Established",
+}
+FUNDING_TYPE_MAP = {
+    "grant":"Grant","non-repayable":"Grant","nonrepayable":"Grant","contribution":"Grant",
+    "loan":"Loan","microloan":"Loan",
+    "financ":"Financing","capital":"Financing",
+    "subsid":"Subsidy",
+    "tax credit":"Tax Credit","taxcredit":"Tax Credit",
+    "credit":"Credit","line of credit":"Credit",
+}
+
+def normalize_activity_tag(tag: str) -> str:
+    t = (tag or "").strip().lower()
+    for needle, canon in ACTIVITY_NORMALIZATION_MAP.items():
+        if needle in t: return canon
+    return ""
+
+def normalize_stage_tag(tag: str) -> str:
+    t = (tag or "").strip().lower()
+    for needle, canon in STAGE_NORMALIZATION_MAP.items():
+        if needle in t: return canon
+    return ""
+
+def detect_funding_types_from_tags(s: str) -> set[str]:
+    tags = parse_tags_field_clean(s); hits = set()
+    for t in tags:
+        tl = t.lower()
+        for needle, canon in FUNDING_TYPE_MAP.items():
+            if needle in tl: hits.add(canon)
+    return hits
+
+def row_activity_norm_set(raw_tag_field: str) -> set[str]:
+    return { normalize_activity_tag(rt) for rt in parse_tags_field_clean(raw_tag_field) if normalize_activity_tag(rt) }
+
+def row_stage_norm_set(raw_tag_field: str) -> set[str]:
+    return { normalize_stage_tag(rt) for rt in parse_tags_field_clean(raw_tag_field) if normalize_stage_tag(rt) }
+
+# ---------------------------- Derived columns ----------------------------
+df["__funding_bucket"] = df[COLS["FUNDING"]].apply(funding_bucket)
+
+days_list, date_list = [], []
+for val in df[COLS["LAST_CHECKED"]].tolist():
+    d, ds = days_since(val); days_list.append(d); date_list.append(ds or "")
+df["__fresh_days"] = days_list
+df["__fresh_date"] = date_list
+
+if df[COLS["KEY"]].isna().any():
+    df[COLS["KEY"]] = (
+        df[COLS["PROGRAM_NAME"]].fillna("").astype(str).str.lower().str.replace(r"[^a-z0-9]+","",regex=True)
+        + "|" +
+        df[COLS["ORG_NAME"]].fillna("").astype(str).str.lower().str.replace(r"[^a-z0-9]+","",regex=True)
+    )
+
+df["__activity_norm_set"] = df[COLS["TAGS"]].fillna("").astype(str).apply(row_activity_norm_set)
+df["__stage_norm_set"]    = df[COLS["TAGS"]].fillna("").astype(str).apply(row_stage_norm_set)
+df["__fund_type_set"]     = df[COLS["TAGS"]].fillna("").astype(str).apply(detect_funding_types_from_tags)
+
+# ---------------------------- Sidebar filters ----------------------------
+st.sidebar.header("Filters")
+
+REGION_CHOICES = ["Calgary","Edmonton","Rural Alberta","Canada"]
+FUNDING_TYPE_CHOICES = ["Grant","Loan","Financing","Subsidy","Tax Credit","Credit"]
+FUND_AMOUNT_CHOICES = ["Under 5K","5K–25K","25K–100K","100K–500K","500K+","Unknown / Not stated"]
+
+FUZZY_THR = 70
+sort_mode = st.sidebar.selectbox("Sort results by", ["Relevance","Program Name (A–Z)","Last Checked (newest)"], index=0)
+page_size = st.sidebar.selectbox("Results per page", [10, 25, 50], index=1)
+
+REGION_MATCH_TABLE = {
+    "Calgary": ["calgary","southern alberta","foothills"],
+    "Edmonton": ["edmonton","capital region","central alberta"],
+    "Rural Alberta": ["rural","north","northern alberta","east central","south","southern alberta","central alberta","mountain view","parkland"],
+    "Canada": ["canada","national","federal","pan-canadian","international"],
+}
+
+def region_match(region_value: str, selected: str) -> bool:
+    if not selected or selected == "All Regions": return True
+    if not isinstance(region_value, str): return False
+    v = region_value.lower()
+    return any(word in v for word in REGION_MATCH_TABLE.get(selected, []))
+
+def count_by_option(series_of_sets: pd.Series):
+    freq = {}
+    for S in series_of_sets:
+        for v in S:
+            freq[v] = freq.get(v, 0) + 1
+    return freq
+
+def fuzzy_mask(df_in, q_text, threshold=70):
+    if not q_text: return pd.Series([True]*len(df_in), index=df_in.index)
+    cols = [COLS["PROGRAM_NAME"], COLS["ORG_NAME"], COLS["DESC"], COLS["ELIG"], COLS["TAGS"]]
+    blobs = (df_in[cols].fillna("").astype(str).agg(" ".join, axis=1).str.lower())
+    return blobs.apply(lambda blob: fuzz.partial_ratio(q_text.lower(), blob) >= threshold)
+
+def filtered_except(df_in, q_text, selected_regions, selected_ftypes, selected_famts, selected_stage, selected_activity, *, except_dim):
+    out = df_in.copy()
+    if q_text:
+        out = out[fuzzy_mask(out, q_text, threshold=FUZZY_THR)]
+    if except_dim != "region" and selected_regions:
+        col = out[COLS["REGION"]].astype(str)
+        out = out[col.apply(lambda v: any(region_match(v, r) for r in selected_regions))]
+    if except_dim != "famt" and selected_famts:
+        out = out[out["__funding_bucket"].isin(selected_famts)]
+    if except_dim != "ftype" and selected_ftypes:
+        out = out[out["__fund_type_set"].apply(lambda s: bool(s & selected_ftypes))]
+    if except_dim != "stage" and selected_stage:
+        out = out[out["__stage_norm_set"].apply(lambda s: bool(s & selected_stage))]
+    if except_dim != "activity" and selected_activity:
+        out = out[out["__activity_norm_set"].apply(lambda s: bool(s & selected_activity))]
+    return out
+
+# ---------------------------- Search & gather ----------------------------
+q = st.text_input("🔍 Search programs", "", key="q", placeholder="Try 'grant', 'mentorship', or 'startup'…")
+st.caption("Tip: Search matches similar terms (e.g., typing **mentor** finds **mentorship**).")
+
+all_activity_norm = sorted({ v for S in df["__activity_norm_set"] for v in S })
+all_stage_norm    = sorted({ v for S in df["__stage_norm_set"] for v in S })
+
+selected_regions  = {opt for opt in REGION_CHOICES if st.session_state.get(f"region_{opt}")}
+selected_ftypes   = {opt for opt in FUNDING_TYPE_CHOICES if st.session_state.get(f"ftype_{opt}")}
+selected_famts    = {opt for opt in FUND_AMOUNT_CHOICES if st.session_state.get(f"famt_{opt}")}
+selected_stage    = {opt for opt in all_stage_norm if st.session_state.get(f"stage_{opt}")}
+selected_activity = {opt for opt in all_activity_norm if st.session_state.get(f"activity_{opt}")}
+
+df_except_region   = filtered_except(df, q, selected_regions, selected_ftypes, selected_famts, selected_stage, selected_activity, except_dim="region")
+df_except_ftype    = filtered_except(df, q, selected_regions, selected_ftypes, selected_famts, selected_stage, selected_activity, except_dim="ftype")
+df_except_famt     = filtered_except(df, q, selected_regions, selected_ftypes, selected_famts, selected_stage, selected_activity, except_dim="famt")
+df_except_stage    = filtered_except(df, q, selected_regions, selected_ftypes, selected_famts, selected_stage, selected_activity, except_dim="stage")
+df_except_activity = filtered_except(df, q, selected_regions, selected_ftypes, selected_famts, selected_stage, selected_activity, except_dim="activity")
+
+region_counts  = {r: int(df_except_region[COLS["REGION"]].astype(str).apply(lambda v, r=r: region_match(v, r)).sum()) for r in REGION_CHOICES}
+ftype_counts   = {f: int(df_except_ftype["__fund_type_set"].apply(lambda s, f=f: f in s).sum()) for f in FUNDING_TYPE_CHOICES}
+famt_counts    = df_except_famt["__funding_bucket"].value_counts().to_dict()
+stage_counts   = count_by_option(df_except_stage["__stage_norm_set"])
+activity_counts= count_by_option(df_except_activity["__activity_norm_set"])
+
+def render_filter_checklist(label, options, counts, state_prefix):
+    picked = set()
+    with st.sidebar.expander(label, expanded=False):
+        if st.button("Clear", key=f"clear_{state_prefix}"):
+            for opt in options:
+                st.session_state[f"{state_prefix}_{opt}"] = False
+        for opt in options:
+            c = counts.get(opt, 0)
+            disabled = c == 0
+            val = st.checkbox(f"{opt} ({c})", key=f"{state_prefix}_{opt}", disabled=disabled)
+            if val and not disabled:
+                picked.add(opt)
+    return picked
+
+sel_regions  = render_filter_checklist("Region", REGION_CHOICES, region_counts, "region")
+sel_ftypes   = render_filter_checklist("Funding (Type)", FUNDING_TYPE_CHOICES, ftype_counts, "ftype")
+sel_famts    = render_filter_checklist("Funding (Amount – Buckets)", FUND_AMOUNT_CHOICES, famt_counts, "famt")
+sel_stage    = render_filter_checklist("Business Stage", all_stage_norm, stage_counts, "stage")
+sel_activity = render_filter_checklist("Activity", all_activity_norm, activity_counts, "activity")
+
+selected_regions, selected_ftypes, selected_famts = sel_regions, sel_ftypes, sel_famts
+selected_stage, selected_activity = sel_stage, sel_activity
+
+if st.sidebar.button("Clear all filters"):
+    for k in list(st.session_state.keys()):
+        if any(k.startswith(prefix) for prefix in ("region_","ftype_","famt_","stage_","activity_")):
+            st.session_state[k] = False
+    st.session_state["q"] = ""
+    st.experimental_rerun()
+
+# ---------------------------- Apply filters ----------------------------
+def apply_filters(df_in: pd.DataFrame) -> pd.DataFrame:
+    out = df_in.copy()
+    out = out[fuzzy_mask(out, q, threshold=FUZZY_THR)]
+    if selected_regions and COLS["REGION"] in out.columns:
+        col = out[COLS["REGION"]].astype(str)
+        out = out[col.apply(lambda v: any(region_match(v, r) for r in selected_regions))]
+    if selected_famts:
+        out = out[out["__funding_bucket"].isin(selected_famts)]
+    if selected_ftypes:
+        out = out[out["__fund_type_set"].apply(lambda s: bool(s & selected_ftypes))]
+    if selected_stage:
+        out = out[out["__stage_norm_set"].apply(lambda s: bool(s & selected_stage))]
+    if selected_activity:
+        out = out[out["__activity_norm_set"].apply(lambda s: bool(s & selected_activity))]
+    return out
 
 filtered = apply_filters(df)
 
-# =========================
-# ------ SUMMARY ROW ------
-# =========================
+# ---------------------------- Sort & pagination ----------------------------
+def sort_df(dfin: pd.DataFrame) -> pd.DataFrame:
+    if sort_mode == "Program Name (A–Z)":
+        return dfin.sort_values(COLS["PROGRAM_NAME"], na_position="last", kind="mergesort")
+    if sort_mode == "Last Checked (newest)":
+        tmp = dfin.copy()
+        tmp["__dt"] = pd.to_datetime(tmp[COLS["LAST_CHECKED"]], errors="coerce")
+        tmp = tmp.sort_values("__dt", ascending=False, na_position="last", kind="mergesort")
+        return tmp.drop(columns="__dt")
+    return dfin
 
-st.markdown(f"### {len(filtered):,} Programs Found")
+filtered = sort_df(filtered)
 
-csv_bytes = filtered.drop(columns=["Funding Type"], errors="ignore").to_csv(index=False).encode("utf-8")
-st.download_button(
-    "Download results (CSV)",
-    data=csv_bytes,
-    file_name="pathfinding_results.csv",
-    mime="text/csv",
-)
+st.markdown(f"### {len(filtered)} Programs Found")
 
-# =========================
-# -------- PAGINATION -----
-# =========================
+# Chips for active filters
+def render_chips():
+    chips = []
+    if q: chips.append(("Search", q, "search", None))
+    for r in sorted(selected_regions): chips.append(("Region", r, "region", r))
+    for f in sorted(selected_ftypes): chips.append(("Funding Type", f, "ftype", f))
+    for a in sorted(selected_activity): chips.append(("Activity", a, "activity", a))
+    for s in sorted(selected_stage): chips.append(("Stage", s, "stage", s))
+    for b in sorted(selected_famts): chips.append(("Amount", b, "famt", b))
+    if not chips: return
+    st.write("")
+    row_cols = 5; idx = 0
+    while idx < len(chips):
+        cols = st.columns(row_cols)
+        for c in range(row_cols):
+            if idx >= len(chips): break
+            (k, v, prefix, opt) = chips[idx]
+            label = f"{k}: {v}  ✕"
+            if cols[c].button(label, key=f"chip_{prefix}_{opt or 'q'}"):
+                if prefix == "search": st.session_state["q"] = ""
+                elif prefix in ("region","ftype","famt","stage","activity") and opt is not None:
+                    st.session_state[f"{prefix}_{opt}"] = False
+                st.experimental_rerun()
+            idx += 1
 
-page = st.session_state.page
-max_page = max(1, math.ceil(len(filtered) / per_page))
+render_chips()
 
-prev_col, spacer, next_col = st.columns([0.1, 0.8, 0.1])
+# Export
+csv_bytes = filtered.to_csv(index=False).encode("utf-8")
+st.download_button("Download results (CSV)", csv_bytes, file_name="pathfinding_results.csv", mime="text/csv")
+
+# ---------------------------- Results (role=main) ----------------------------
+if "favorites" not in st.session_state:
+    st.session_state.favorites = set()
+
+def status_class_and_label(s: str):
+    s_low = (s or "").lower()
+    if "operational" in s_low: return "operational", s or "Operational"
+    if any(k in s_low for k in ["open","active","ongoing","accepting","rolling"]): return "open", s or "Open"
+    return "closed", s or "Closed / Paused"
+
+UNKNOWN = "unknown / not stated"
+
+# Pagination
+total = len(filtered)
+if "page_idx" not in st.session_state: st.session_state.page_idx = 0
+max_page = max(0, (total - 1) // page_size)
+page = min(st.session_state.page_idx, max_page)
+start = page * page_size
+end = min(start + page_size, total)
+if total > 0:
+    st.caption(f"Showing {start+1}-{end} of {total}")
+
+prev_col, _, next_col = st.columns([0.1,0.8,0.1])
 with prev_col:
-    if st.button("◀ Prev", disabled=page <= 1, use_container_width=True):
-        st.session_state.page = max(1, page - 1)
-        st.experimental_rerun()
+    if st.button("◀ Prev", disabled=page==0):
+        st.session_state.page_idx = max(0, page - 1); st.experimental_rerun()
 with next_col:
-    if st.button("Next ▶", disabled=page >= max_page, use_container_width=True):
-        st.session_state.page = min(max_page, page + 1)
-        st.experimental_rerun()
+    if st.button("Next ▶", disabled=page>=max_page):
+        st.session_state.page_idx = min(max_page, page + 1); st.experimental_rerun()
 
-start = (st.session_state.page - 1) * per_page
-end = start + per_page
-page_df = filtered.iloc[start:end].reset_index(drop=True)
+# Anchor for skip link + role=main landmark, styled as GoA search results container if CSS exists
+st.markdown('<div id="results-main" role="main" class="goa-searchresults"></div>', unsafe_allow_html=True)
 
-# =========================
-# ---- RENDER PROGRAMS ----
-# =========================
+if total == 0:
+    st.info("No programs match your current filters. Try clearing filters or broadening your search.")
+else:
+    subset = filtered.iloc[start:end].copy()
+    for i, (_, row) in enumerate(subset.iterrows(), 1):
+        name   = str(row[COLS["PROGRAM_NAME"]] or "")
+        org    = str(row[COLS["ORG_NAME"]] or "")
+        status_raw = str(row[COLS["STATUS"]] or "")
+        s_low = (status_raw or "").lower()
+        badge_cls = "operational" if "operational" in s_low else ("open" if any(k in s_low for k in ["open","active","ongoing","accepting","rolling"]) else "closed")
+        badge_label = status_raw or ("Operational" if badge_cls=="operational" else ("Open" if badge_cls=="open" else "Closed / Paused"))
 
-def fmt_money(val: str) -> str:
-    s = str(val).strip()
-    if not s or s.lower() in {"nan", "unknown", "not stated", "unknown / not stated"}:
-        return ""
-    try:
-        num = float(re.sub(r"[,$ ]", "", s))
-        return f"${num:,.0f}"
-    except Exception:
-        return s if "$" in s else s
+        desc_full = sanitize_text_keep_smart(str(row[COLS["DESC"]] or "").strip())
+        desc = (desc_full[:240] + "…") if len(desc_full) > 240 else desc_full
+        elig = sanitize_text_keep_smart(str(row[COLS["ELIG"]] or "").strip())
+        fund_bucket = str(row.get("__funding_bucket") or "")
+        fresh_days = row.get("__fresh_days")
+        fresh_date = str(row.get("__fresh_date") or "")
+        fresh_label = freshness_label(fresh_days)
 
-for i, row in page_df.iterrows():
-    program_name = str(row["Program Name"]).strip()
-    program_desc = str(row["Program Description"]).strip()
-    eligibility = str(row["Eligibility Description"]).strip()
-    funding = fmt_money(row["Funding Amount"])
-    website = str(row["Program Website"]).strip()
-    email = str(row["Email Address"]).strip()
-    phone = str(row["Phone Number"]).strip()
-    org = str(row["Organization Name"]).strip()
-    last_checked = str(row["Last Checked (MT)"]).strip()
-    status = str(row["Operational Status"]).strip()
-    key_norm = str(row["_key_norm"]).strip() or f"key_{i}"
+        website = str(row.get(COLS["WEBSITE"]) or "").strip()
+        email   = str(row.get(COLS["EMAIL"]) or "").strip().lower()
+        phone   = str(row.get(COLS["PHONE"]) or "").strip()
+        key     = str(row.get(COLS["KEY"], f"k{i}"))
 
-    status_badge_class = "badge-success" if status.lower().startswith("operational") else ""
-    status_label = status if status else "Status: Unknown"
+        # Card header + body (GoA class + local fallback)
+        st.markdown(
+            f"<div class='card goa-card'>"
+            f"<span class='badge {badge_cls}'>{badge_label}</span>"
+            f"<span class='meta'>Last checked: {fresh_date if fresh_date else '—'}"
+            f"{' (' + fresh_label + ')' if fresh_label != '—' else ''}</span>"
+            f"<div class='title'>{name}</div>"
+            f"<div class='org'>{org}</div>",
+            unsafe_allow_html=True
+        )
 
-    st.markdown('<div class="program-card">', unsafe_allow_html=True)
+        # Funding + Eligibility ABOVE description
+        fund_label = ""
+        if fund_bucket and fund_bucket.strip().lower() != UNKNOWN:
+            fund_label = add_dollar_signs(fund_bucket)
+        fund_line = f'<span class="kv"><strong>Funding:</strong> {fund_label}</span>' if fund_label else ""
+        elig_line = f'<span class="kv"><strong>Eligibility:</strong> {elig}</span>' if (elig and elig.strip().lower() not in {"", "unknown / not stated", "n/a", "na"}) else ""
+        meta_html = " ".join(x for x in [fund_line, elig_line] if x) or "<span class='placeholder'>No additional details</span>"
+        st.markdown(f"<div class='meta-info'>{meta_html}</div>", unsafe_allow_html=True)
 
-    # Status + last checked badges
-    st.markdown(
-        f'<span class="badge {status_badge_class}">{status_label}</span>'
-        f'<span class="badge">Last checked: {last_checked or "—"}</span>',
-        unsafe_allow_html=True,
-    )
+        # Description
+        st.markdown(f"<p>{desc or '<span class=\"placeholder\">No description provided.</span>'}</p>", unsafe_allow_html=True)
 
-    # Program name and org
-    st.markdown(f"### {program_name}")
-    if org:
-        st.markdown(f"<span class='muted'>{org}</span>", unsafe_allow_html=True)
+        # Bottom actions bar INSIDE the card (links + inline Favourite)
+        parts = []
+        if website:
+            url = website if website.startswith(('http://','https://')) else f'https://{website}'
+            parts.append(f'<a class=\"goa-link\" href=\"{url}\" target=\"_blank\" rel=\"noopener\">Website</a>')
+        if email:
+            parts.append(f'<a class=\"goa-link\" href=\"mailto:{email}\">Email</a>')
+        if phone:
+            parts.append(f'<a class=\"goa-link\" href=\"tel:{phone}\">Call</a>')
+        links_html = " <span class='dot'>•</span> ".join(parts) if parts else ""
 
-    # Program description
-    if program_desc:
-        st.markdown('<div class="hr"></div>', unsafe_allow_html=True)
-        st.markdown(program_desc)
+        st.markdown(f"<div class='actions goa-card__actions'>{('<div class=\"links\">'+links_html+'</div>') if links_html else ''}", unsafe_allow_html=True)
+        fav_on = key in st.session_state.favorites
+        fav_label = "★ Favourite" if fav_on else "☆ Favourite"
+        fav_clicked = st.button(fav_label, key=f"fav_{key}")
+        st.markdown("</div>", unsafe_allow_html=True)  # close .actions
 
-    # Eligibility + Funding
-    show_elig = eligibility and eligibility.lower() not in {"unknown", "not stated", "unknown / not stated"}
-    show_fund = bool(funding)
-    if show_elig or show_fund:
-        st.markdown('<div class="hr"></div>', unsafe_allow_html=True)
-        if show_elig:
-            st.markdown(f"**Eligibility:** {eligibility}")
-        if show_fund:
-            st.markdown(f"**Funding:** {funding}")
-
-    # Contact row (Website / Email / Call / Favourite)
-    st.markdown('<div class="hr"></div>', unsafe_allow_html=True)
-    c1, c2, c3, c4 = st.columns([1, 1, 1, 1])
-    with c1:
-        if website and website.lower() not in {"nan", "none", ""}:
-            st.markdown(f"[Website]({website})")
-    with c2:
-        if email and email.lower() not in {"nan", "none", ""}:
-            st.markdown(f"[Email](mailto:{email})")
-    with c3:
-        if phone and phone.lower() not in {"nan", "none", ""}:
-            tel = re.sub(r"[^0-9+]", "", phone)
-            st.markdown(f"[Call](tel:{tel})")
-    with c4:
-        is_fav = key_norm in st.session_state.favs
-        label = "★ Favourited" if is_fav else "☆ Favourite"
-        if st.button(label, key=f"fav_{key_norm}"):
-            toggle_fav(key_norm)
+        if fav_clicked:
+            if fav_on: st.session_state.favorites.remove(key)
+            else:      st.session_state.favorites.add(key)
             st.experimental_rerun()
 
-    st.markdown("</div>", unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)  # close .card
 
-# Bottom pager
-st.markdown("")
-prev2, space2, next2 = st.columns([0.1, 0.8, 0.1])
-with prev2:
-    if st.button("◀ Prev ", key="prev_bottom", disabled=st.session_state.page <= 1, use_container_width=True):
-        st.session_state.page = max(1, st.session_state.page - 1)
-        st.experimental_rerun()
-with next2:
-    if st.button("Next ▶ ", key="next_bottom", disabled=st.session_state.page >= max_page, use_container_width=True):
-        st.session_state.page = min(max_page, st.session_state.page + 1)
-        st.experimental_rerun()
+        if len(desc_full) > 240:
+            with st.expander("More details"):
+                st.markdown(f"**Full description:** {desc_full}")
