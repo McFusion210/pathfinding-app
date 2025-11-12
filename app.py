@@ -1,6 +1,6 @@
 import math
 import re
-from typing import List, Optional
+from typing import List
 
 import pandas as pd
 import streamlit as st
@@ -84,18 +84,29 @@ st.markdown(
 # =========================
 @st.cache_data(show_spinner=False)
 def load_data() -> pd.DataFrame:
-    """
-    Load repository from local / bundled file.
+    """Load repository from local / bundled file.
+
     Expected columns:
       Program Name, Program Description, Eligibility Description, Organization Name,
       Funding Amount, Program Website, Email Address, Phone Number, Geographic Region,
       Meta Tags, Last Checked (MT), Operational Status, _key_norm
-    (Extra columns are ignored; 'Sources' and 'Notes' intentionally not used.)
+
+    Extra columns are ignored; `Sources` and `Notes` intentionally not used.
     """
     expected = [
-        "Program Name", "Program Description", "Eligibility Description", "Organization Name",
-        "Funding Amount", "Program Website", "Email Address", "Phone Number", "Geographic Region",
-        "Meta Tags", "Last Checked (MT)", "Operational Status", "_key_norm"
+        "Program Name",
+        "Program Description",
+        "Eligibility Description",
+        "Organization Name",
+        "Funding Amount",
+        "Program Website",
+        "Email Address",
+        "Phone Number",
+        "Geographic Region",
+        "Meta Tags",
+        "Last Checked (MT)",
+        "Operational Status",
+        "_key_norm",
     ]
 
     def normalize(df: pd.DataFrame) -> pd.DataFrame:
@@ -124,6 +135,7 @@ def load_data() -> pd.DataFrame:
     # Final fallback: empty scaffold
     return pd.DataFrame(columns=expected)
 
+
 df = load_data()
 
 # =========================
@@ -134,11 +146,13 @@ if "favs" not in st.session_state:
 if "page" not in st.session_state:
     st.session_state.page = 1
 
+
 def toggle_fav(key_norm: str):
     if key_norm in st.session_state.favs:
         st.session_state.favs.remove(key_norm)
     else:
         st.session_state.favs.add(key_norm)
+
 
 # =========================
 # ------- HEADER UI -------
@@ -155,21 +169,26 @@ st.markdown(
 
 # =========================
 # ------- SIDEBAR ---------
-# (No file uploader anymore)
+# (No file uploader)
 # =========================
 with st.sidebar:
     st.subheader("Filters")
 
     st.markdown("**Sort results by**")
     sort_choice = st.selectbox(
-        "",
+        "Sort results by",
         ["Relevance", "Program Name A–Z", "Program Name Z–A", "Last Checked (Newest)"],
         index=0,
         label_visibility="collapsed",
     )
 
     st.markdown("**Results per page**")
-    per_page = st.selectbox("", [10, 25, 50, 100], index=1, label_visibility="collapsed")
+    per_page = st.selectbox(
+        "Results per page",
+        [10, 25, 50, 100],
+        index=1,
+        label_visibility="collapsed",
+    )
 
     st.markdown("---")
 
@@ -178,13 +197,18 @@ with st.sidebar:
     all_regions = sorted(
         {r.strip() for r in ";".join(df["Geographic Region"].dropna().astype(str)).split(";") if r.strip()}
     )
-    selected_regions = st.multiselect("", options=all_regions, label_visibility="collapsed")
+    selected_regions = st.multiselect(
+        "Region filter",
+        options=all_regions,
+        label_visibility="collapsed",
+    )
 
     st.markdown("**Funding (Type)**")
-    # derive rough type from meta tags
+
     def derive_type(row) -> List[str]:
+        """Derive rough funding type from meta tags."""
         tags = str(row.get("Meta Tags", "")).lower()
-        types = []
+        types: List[str] = []
         if "grant" in tags or "non-repayable" in tags:
             types.append("Grant")
         if "loan" in tags or "microloan" in tags:
@@ -201,7 +225,12 @@ with st.sidebar:
         df["Funding Type"] = df.apply(derive_type, axis=1)
 
     all_types = sorted({t for lst in df["Funding Type"] for t in (lst if isinstance(lst, list) else [lst])})
-    selected_types = st.multiselect("", options=all_types, label_visibility="collapsed")
+    selected_types = st.multiselect(
+        "Funding type filter",
+        options=all_types,
+        label_visibility="collapsed",
+    )
+
 
 # =========================
 # ------- SEARCH BAR ------
@@ -209,6 +238,7 @@ with st.sidebar:
 st.caption("🔎 Search programs")
 query = st.text_input("Try 'grant', 'mentorship', or 'startup'…", label_visibility="collapsed").strip()
 st.caption("Tip: Search matches similar terms (e.g., typing mentor finds mentorship).")
+
 
 # =========================
 # ------- FILTER LOGIC ----
@@ -231,12 +261,14 @@ def search_filter(_df: pd.DataFrame) -> pd.DataFrame:
         def region_match(val: str) -> bool:
             regions = [x.strip() for x in str(val).split(";")]
             return any(r in regions for r in selected_regions)
+
         out = out[out["Geographic Region"].apply(region_match)]
 
     if selected_types:
         def type_match(val):
             vals = val if isinstance(val, list) else [val]
             return any(t in vals for t in selected_types)
+
         out = out[out["Funding Type"].apply(type_match)]
 
     if sort_choice == "Program Name A–Z":
@@ -249,6 +281,7 @@ def search_filter(_df: pd.DataFrame) -> pd.DataFrame:
 
     return out
 
+
 filtered = search_filter(df)
 
 # =========================
@@ -256,7 +289,12 @@ filtered = search_filter(df)
 # =========================
 st.markdown(f"### {len(filtered):,} Programs Found")
 csv_bytes = filtered.drop(columns=["Funding Type"], errors="ignore").to_csv(index=False).encode("utf-8")
-st.download_button("Download results (CSV)", data=csv_bytes, file_name="pathfinding_results.csv", mime="text/csv")
+st.download_button(
+    "Download results (CSV)",
+    data=csv_bytes,
+    file_name="pathfinding_results.csv",
+    mime="text/csv",
+)
 
 # =========================
 # -------- PAGINATION -----
@@ -277,6 +315,7 @@ start = (st.session_state.page - 1) * per_page
 end = start + per_page
 page_df = filtered.iloc[start:end].reset_index(drop=True)
 
+
 # =========================
 # ---- RENDER PROGRAMS ----
 # =========================
@@ -289,6 +328,7 @@ def fmt_money(val: str) -> str:
         return f"${num:,.0f}"
     except Exception:
         return s if "$" in s else s
+
 
 for i, row in page_df.iterrows():
     program_name = str(row["Program Name"]).strip()
@@ -319,7 +359,7 @@ for i, row in page_df.iterrows():
     # Title and org (org kept inside card, muted under title)
     st.markdown(f"### {program_name}")
     if org:
-        st.markdown(f"<span class='muted'>{org}</span>", unsafe_allow_html=True)
+        st.markdown("<span class='muted'>" + org + "</span>", unsafe_allow_html=True)
 
     # Description
     if program_desc:
@@ -357,6 +397,7 @@ for i, row in page_df.iterrows():
             st.experimental_rerun()
 
     st.markdown("</div>", unsafe_allow_html=True)
+
 
 # Bottom pager
 st.markdown("")
