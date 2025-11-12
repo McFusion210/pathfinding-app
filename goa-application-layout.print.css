@@ -1,0 +1,188 @@
+/* hidden ***/
+
+div.goa-locations div.goa-form,
+div.goa-locations [itemprop = 'image'],
+div.goa-locations [itemprop = 'priceRange'],
+div.goa-locations [itemprop = 'geo'],
+[itemprop='priceRange'], 
+[itemprop='image'],
+[itemprop='geo'], 
+div.goa-locations a.goa-cta,
+div.goa-card div.goa-thumb iframe,
+div.goa-search div.goa-searchbar,
+div.goa-search div.goa-paging,
+div.goa-search div.goa-searchministry,
+div.goa-accordion div.goa-toolbar,
+.ab-c-location-footer > button, 
+div.goa-gallery--navigation, 
+div.goa-gallery--controls, 
+div.goa-gallery--instructions,
+a.goa-link-button--escape,
+.goa-pagemenu-wrapper,
+.goa-login,
+.goa-pagemenu-toc-wrapper,
+button.goa-section-menu--links,
+button.goa-togglesection-close,
+.goa-section-menu,
+.goa-parent-link > a,
+.goa-section-menu > a,
+div.ab-searchbar,
+div.ab-menubar,
+div.ab-togglesearch,
+div.ab-toc,
+div.ab-skiplinks,
+div#ab-quicklinks,
+div#ab-aboutlinks,
+div.ab-togglemenu,
+div.ab-togglesectionmenu, 
+div.ab-menubar--collection,
+div.ab-guidetools,
+div.ab-guidenav,
+div.ab-toggleguidemenu,
+div.ab-languages-wrapper,
+div.goa-hero--branded > .goa-hero--branded-logo,
+div.ab-breadcrumb > .goa-togglelanguages {
+	display: none;
+}
+
+/* general ***/
+
+div.goa-title {
+	font-size: 1.5em;
+	font-weight: 700;
+}
+
+/* goa-parent-link - goa-section ****/
+
+.goa-forms-documents > ul {
+	list-style-type: none;
+	padding: 0
+}
+
+/* goa-caption ***/
+
+div.goa-caption {
+	padding: 12px;
+	border: 1px solid #000;
+}
+
+/* goa-disclaimer ***/
+
+div.goa-disclaimer {
+	margin: 28px 0 0;
+	padding: 12px;
+	border: 1px solid #000;
+}
+
+/* goa-image ***/
+
+div.goa-image {
+	width: 40%;
+	vertical-align: top;
+}
+div.goa-image img {
+	width: 100%;
+	vertical-align: top;
+}
+div.goa-image.goa--left {
+	float: left;
+	margin: 24px 24px 24px 0;
+}
+div.goa-image.goa--right {
+	float: right;
+	margin: 24px 0 24px 24px;
+}
+
+/* general ***/
+
+body {
+	line-height: 1.4em;
+}
+
+/* ab-header ***/
+
+div.ab-header {
+	margin: 28px 0 0;
+}
+
+/* ab-notifications ***/
+
+div.ab-notifications ul {
+	margin: 0;
+	padding: 0;
+	list-style-type: none;
+}
+div.ab-notifications li {
+	padding: 24px;
+	border: 1px solid #000;
+}
+div.ab-notifications li + li {
+	margin: 28px 0 0;
+}
+
+/* ab-breadcrumb ***/
+
+div.ab-breadcrumb {
+	margin: 28px 0 0;
+}
+div.ab-breadcrumb ul {
+	margin: 0;
+	padding: 0;
+	list-style-type: none;
+}
+div.ab-breadcrumb li {
+	display: inline;
+}
+div.ab-breadcrumb li:not(:last-child):after {
+	display: inline;
+	margin: auto 12px;
+	content: '\2192';
+}
+
+/* ab-copyright ***/
+
+div.ab-copyright {
+	margin: 56px 0 0;
+}
+
+/* ab-languages ***/
+
+div.ab-languages {
+	margin: 28px 0 0;
+}
+div.ab-languages ul {
+	margin: 0;
+	padding: 0;
+	list-style-type: none;
+}
+div.ab-languages li {
+	display: inline;
+}
+div.ab-languages li + li {
+	margin-left: 12px;
+}
+div.ab-languages li.current-lang {
+	font-weight: 700;
+}
+
+/* ab-menugrid ***/
+
+div.ab-themes {
+	display: inline-block;
+}
+ul.ab-menugrid {
+	margin: 0;
+	padding: 0;
+	list-style-type: none;
+}
+ul.ab-menugrid > li {
+	float: left;
+	width: 50%;
+}
+
+/* goa-pagemenu */
+
+div.goa-hero--branded {
+	display: none !important; /* if necessary */
+}
+
