@@ -517,12 +517,6 @@ st.download_button("Download results (CSV)", csv_bytes, file_name="pathfinding_r
 if "favorites" not in st.session_state:
     st.session_state.favorites = set()
 
-def status_class_and_label(s: str):
-    s_low = (s or "").lower()
-    if "operational" in s_low: return "operational", s or "Operational"
-    if any(k in s_low for k in ["open","active","ongoing","accepting","rolling"]): return "open", s or "Open"
-    return "closed", s or "Closed / Paused"
-
 UNKNOWN = "unknown / not stated"
 
 # Pagination
@@ -571,7 +565,7 @@ else:
         phone   = str(row.get(COLS["PHONE"]) or "").strip()
         key     = str(row.get(COLS["KEY"], f"k{i}"))
 
-        # Card header + body (GoA class + local fallback)
+        # Card header (status + title/org)
         st.markdown(
             f"<div class='card goa-card'>"
             f"<span class='badge {badge_cls}'>{badge_label}</span>"
@@ -582,7 +576,13 @@ else:
             unsafe_allow_html=True
         )
 
-        # Funding + Eligibility ABOVE description
+        # Description directly under program name
+        st.markdown(
+            f"<p>{desc or '<span class=\"placeholder\">No description provided.</span>'}</p>",
+            unsafe_allow_html=True
+        )
+
+        # Funding + Eligibility BELOW description
         fund_label = ""
         if fund_bucket and fund_bucket.strip().lower() != UNKNOWN:
             fund_label = add_dollar_signs(fund_bucket)
@@ -590,9 +590,6 @@ else:
         elig_line = f'<span class="kv"><strong>Eligibility:</strong> {elig}</span>' if (elig and elig.strip().lower() not in {"", "unknown / not stated", "n/a", "na"}) else ""
         meta_html = " ".join(x for x in [fund_line, elig_line] if x) or "<span class='placeholder'>No additional details</span>"
         st.markdown(f"<div class='meta-info'>{meta_html}</div>", unsafe_allow_html=True)
-
-        # Description
-        st.markdown(f"<p>{desc or '<span class=\"placeholder\">No description provided.</span>'}</p>", unsafe_allow_html=True)
 
         # Bottom actions bar INSIDE the card (links + inline Favourite)
         parts = []
