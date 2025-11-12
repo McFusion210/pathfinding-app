@@ -6,6 +6,7 @@
 # • GoA logo embedded (SVG/PNG). Optional GoA CSS injection if files exist
 # • ARIA: role="main" on results, “Skip to results” link
 # • Empty-state message, chips, pagination, sorting
+# • Applies GoA component classes when available (goa-header, goa-card, goa-searchresults)
 
 import re, base64
 from pathlib import Path
@@ -16,7 +17,7 @@ from rapidfuzz import fuzz
 # ---------------------------- Page ----------------------------
 st.set_page_config(page_title="Alberta Pathfinding Tool – Small Business Supports", layout="wide")
 
-# ---------------------------- Styles ----------------------------
+# ---------------------------- Styles (fallbacks if GoA CSS not present) ----------------------------
 st.markdown("""
 <style>
 :root{
@@ -42,7 +43,7 @@ html, body, p, div, span{
 }
 
 /* Sticky header (GoA band) */
-.header{
+.header.goa-header{
   position:sticky; top:0; z-index:9999;
   display:flex; align-items:center; gap:14px;
   background:var(--primary); color:#fff;
@@ -50,14 +51,14 @@ html, body, p, div, span{
   border-bottom:2px solid #00294F;
   box-shadow:0 2px 8px rgba(0,0,0,.08);
 }
-.header h2{ margin:0; color:#fff; font-weight:800; font-size:28px; letter-spacing:.2px; }
-.header p { margin:0; color:#E6F2F8; font-size:15px; }
+.header.goa-header h2{ margin:0; color:#fff; font-weight:800; font-size:28px; letter-spacing:.2px; }
+.header.goa-header p { margin:0; color:#E6F2F8; font-size:15px; }
 
 /* Spacer so content never sits beneath header */
-.header-spacer{ height: 12px; }
+.header-spacer{ height:12px; }
 
 /* Cards */
-.card{
+.card.goa-card{
   background:var(--surface);
   border:1px solid var(--border);
   border-radius:16px;
@@ -110,7 +111,8 @@ button[kind="primary"], .stButton>button{ border-radius:8px; }
 
 # ---------------------------- Optional: inline GoA CSS if present ----------------------------
 def inline_gov_css():
-    for fname in ("goa-application-layouts.css", "goa-application-layout.print.css"):
+    # Inline these in order so global foundations load first, components last.
+    for fname in ("goa-application-layouts.css", "goa-application-layout.print.css", "goa-components.css"):
         p = Path(fname)
         if p.exists():
             try:
@@ -136,7 +138,7 @@ def embed_logo_html():
 st.markdown('<a class="skip-link" href="#results-main">Skip to results</a>', unsafe_allow_html=True)
 
 st.markdown(f"""
-<div class="header">
+<div class="header goa-header goa-app-header">
   {embed_logo_html()}
   <div>
     <h2>Alberta Pathfinding Tool</h2>
@@ -541,8 +543,8 @@ with next_col:
     if st.button("Next ▶", disabled=page>=max_page):
         st.session_state.page_idx = min(max_page, page + 1); st.experimental_rerun()
 
-# Anchor for skip link + role=main landmark
-st.markdown('<div id="results-main" role="main"></div>', unsafe_allow_html=True)
+# Anchor for skip link + role=main landmark, styled as GoA search results container if CSS exists
+st.markdown('<div id="results-main" role="main" class="goa-searchresults"></div>', unsafe_allow_html=True)
 
 if total == 0:
     st.info("No programs match your current filters. Try clearing filters or broadening your search.")
@@ -569,9 +571,9 @@ else:
         phone   = str(row.get(COLS["PHONE"]) or "").strip()
         key     = str(row.get(COLS["KEY"], f"k{i}"))
 
-        # Card header
+        # Card header + body (GoA class + local fallback)
         st.markdown(
-            f"<div class='card'>"
+            f"<div class='card goa-card'>"
             f"<span class='badge {badge_cls}'>{badge_label}</span>"
             f"<span class='meta'>Last checked: {fresh_date if fresh_date else '—'}"
             f"{' (' + fresh_label + ')' if fresh_label != '—' else ''}</span>"
@@ -596,14 +598,14 @@ else:
         parts = []
         if website:
             url = website if website.startswith(('http://','https://')) else f'https://{website}'
-            parts.append(f'<a href="{url}" target="_blank" rel="noopener">Website</a>')
+            parts.append(f'<a class=\"goa-link\" href=\"{url}\" target=\"_blank\" rel=\"noopener\">Website</a>')
         if email:
-            parts.append(f'<a href="mailto:{email}">Email</a>')
+            parts.append(f'<a class=\"goa-link\" href=\"mailto:{email}\">Email</a>')
         if phone:
-            parts.append(f'<a href="tel:{phone}">Call</a>')
+            parts.append(f'<a class=\"goa-link\" href=\"tel:{phone}\">Call</a>')
         links_html = " <span class='dot'>•</span> ".join(parts) if parts else ""
 
-        st.markdown(f"<div class='actions'>{('<div class=\"links\">'+links_html+'</div>') if links_html else ''}", unsafe_allow_html=True)
+        st.markdown(f"<div class='actions goa-card__actions'>{('<div class=\"links\">'+links_html+'</div>') if links_html else ''}", unsafe_allow_html=True)
         fav_on = key in st.session_state.favorites
         fav_label = "★ Favourite" if fav_on else "☆ Favourite"
         fav_clicked = st.button(fav_label, key=f"fav_{key}")
