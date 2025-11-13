@@ -3,13 +3,14 @@
 # • Sticky GoA header with hover/focus states
 # • All info visually inside each card (using container + :has marker)
 # • Actions row: Website · Email · Call · ☆/★ Favourite inline as text
-# • Call button reveals phone number(s), with multiple separated by " | "
+# • Call control reveals phone number(s), with multiple separated by " | "
 # • Hide Call when phone is missing or "not publicly listed – use contact page"
 # • Smart punctuation preserved; bullets/emojis stripped; mojibake fixed
 # • GoA logo embedded (SVG/PNG). Optional GoA CSS injection if files exist
 # • ARIA: role="main" on results, “Skip to results” link
 # • Empty-state message, chips, pagination, sorting
-# • Audience filter derived from Meta Tags
+# • Audience & industry filter derived from Meta Tags
+# • Funding-type help panel in sidebar (explains Grants, Loans, Tax Credits, Rebates, Subsidies, etc.)
 
 import re, base64
 from pathlib import Path
@@ -80,13 +81,12 @@ small{ font-size:var(--fs-meta); }
 /* Spacer so content never sits beneath header */
 .header-spacer{ height:12px; }
 
-/* Card marker + container styling
-   We style the *Streamlit container* that contains .pf-card-marker */
+/* Card marker + container styling */
 .pf-card-marker{
   display:none;
 }
 
-/* Use :has(.pf-card-marker) (descendant), not direct child */
+/* Style card container based on marker */
 div[data-testid="stVerticalBlock"]:has(.pf-card-marker){
   background:var(--surface);
   border:1px solid var(--border);
@@ -139,7 +139,7 @@ div[data-testid="stVerticalBlock"]:has(.pf-card-marker):hover{
   border:1px solid #F2BAC1;
 }
 
-/* Funding + Eligibility strip (no lines) */
+/* Funding + Eligibility strip */
 .meta-info{
   display:flex;
   gap:16px;
@@ -156,7 +156,7 @@ div[data-testid="stVerticalBlock"]:has(.pf-card-marker):hover{
   margin-top:6px;
 }
 
-/* (kept for future, not strictly needed now) */
+/* Inline link-style controls */
 .actions-links{
   display:flex;
   flex-wrap:wrap;
@@ -180,7 +180,7 @@ div[data-testid="stVerticalBlock"]:has(.pf-card-marker):hover{
 
 .actions-dot{ color:#9CA3AF; }
 
-/* Make Call/Favourite controls inside actions-row look like plain text links */
+/* Make Call/Favourite button controls look like plain text links */
 .actions-row button{
   background:none !important;
   border:none !important;
@@ -445,38 +445,113 @@ STAGE_NORMALIZATION_MAP = {
     "mature":"Mature / Established","established":"Mature / Established",
     "existing":"Mature / Established",
 }
+
+# Funding types now distinguish Grant, Loan, Financing, Subsidy, Tax Credit, Rebate, Credit, Equity Investment
 FUNDING_TYPE_MAP = {
-    "grant":"Grant","non-repayable":"Grant","nonrepayable":"Grant",
-    "contribution":"Grant",
-    "loan":"Loan","microloan":"Loan",
-    "financ":"Financing","capital":"Financing",
-    "subsid":"Subsidy",
-    "tax credit":"Tax Credit","taxcredit":"Tax Credit",
-    "credit":"Credit","line of credit":"Credit",
+    "grant": "Grant",
+    "non-repayable": "Grant",
+    "nonrepayable": "Grant",
+    "contribution": "Grant",
+
+    "loan": "Loan",
+    "microloan": "Loan",
+    "micro loan": "Loan",
+
+    "financ": "Financing",
+    "capital": "Financing",   # generic capital when not clearly equity
+    "facility": "Financing",
+
+    "subsid": "Subsidy",
+    "wage subsidy": "Subsidy",
+    "salary subsidy": "Subsidy",
+
+    "tax credit": "Tax Credit",
+    "taxcredit": "Tax Credit",
+
+    "rebate": "Rebate",
+    "cash rebate": "Rebate",
+
+    "credit": "Credit",
+    "line of credit": "Credit",
+
+    # Explicit equity-style programs
+    "equity": "Equity Investment",
+    "venture capital": "Equity Investment",
+    "vc": "Equity Investment",
+    "angel": "Equity Investment",
+    "co-invest": "Equity Investment",
+    "co invest": "Equity Investment",
 }
+
 AUDIENCE_NORMALIZATION_MAP = {
-    "women":"Women",
-    "woman":"Women",
-    "female":"Women",
-    "indigenous":"Indigenous",
-    "first nation":"Indigenous",
-    "first nations":"Indigenous",
-    "aboriginal":"Indigenous",
-    "metis":"Indigenous",
-    "inuit":"Indigenous",
-    "black":"Black entrepreneurs",
-    "afro":"Black entrepreneurs",
-    "immigrant":"Immigrants / Newcomers",
-    "newcomer":"Immigrants / Newcomers",
-    "refugee":"Immigrants / Newcomers",
-    "youth":"Youth",
-    "student":"Students",
-    "rural":"Rural",
-    "lgbt":"2SLGBTQ+",
-    "2slgbt":"2SLGBTQ+",
-    "queer":"2SLGBTQ+",
-    "veteran":"Veterans",
-    "disabil":"Persons with disabilities",
+    # Demographic / group audiences
+    "women": "Women",
+    "woman": "Women",
+    "female": "Women",
+    "indigenous": "Indigenous",
+    "first nation": "Indigenous",
+    "first nations": "Indigenous",
+    "aboriginal": "Indigenous",
+    "metis": "Indigenous",
+    "inuit": "Indigenous",
+    "black": "Black entrepreneurs",
+    "afro": "Black entrepreneurs",
+    "immigrant": "Immigrants / Newcomers",
+    "newcomer": "Immigrants / Newcomers",
+    "refugee": "Immigrants / Newcomers",
+    "youth": "Youth",
+    "student": "Students",
+    "rural": "Rural",
+    "veteran": "Veterans",
+    "disabil": "Persons with disabilities",
+    "lgbt": "2SLGBTQ+",
+    "2slgbt": "2SLGBTQ+",
+    "queer": "2SLGBTQ+",
+
+    # Industry / sector audiences (from Meta Tags)
+    "tech": "Technology / Digital",
+    "technology": "Technology / Digital",
+    "digital": "Technology / Digital",
+    "ict": "Technology / Digital",
+    "software": "Technology / Digital",
+    "saas": "Technology / Digital",
+
+    "tourism": "Tourism & Hospitality",
+    "hospitality": "Tourism & Hospitality",
+    "hotel": "Tourism & Hospitality",
+    "visitor": "Tourism & Hospitality",
+
+    "agri": "Agriculture & Agri-food",
+    "agriculture": "Agriculture & Agri-food",
+    "farm": "Agriculture & Agri-food",
+    "farmer": "Agriculture & Agri-food",
+    "agri-food": "Agriculture & Agri-food",
+    "agri food": "Agriculture & Agri-food",
+
+    "energy": "Energy",
+    "oil": "Energy",
+    "gas": "Energy",
+    "oilsands": "Energy",
+    "oil sands": "Energy",
+    "petro": "Energy",
+
+    "cleantech": "Clean Technology",
+    "clean tech": "Clean Technology",
+    "net-zero": "Clean Technology",
+    "net zero": "Clean Technology",
+    "low-carbon": "Clean Technology",
+    "low carbon": "Clean Technology",
+
+    "manufactur": "Manufacturing",
+    "industrial": "Manufacturing",
+
+    "film": "Creative Industries",
+    "screen": "Creative Industries",
+    "tv": "Creative Industries",
+    "television": "Creative Industries",
+    "creative": "Creative Industries",
+    "culture": "Creative Industries",
+    "arts": "Creative Industries",
 }
 
 def normalize_activity_tag(tag: str) -> str:
@@ -558,16 +633,34 @@ df["__audience_norm_set"]  = df[COLS["TAGS"]].fillna("").astype(str).apply(row_a
 
 # ---------------------------- Sidebar filters ----------------------------
 st.sidebar.header("Filters")
+st.sidebar.caption("Use these filters to narrow down programs by funding, audience, stage, activity and region.")
 
 REGION_CHOICES = ["Calgary","Edmonton","Rural Alberta","Canada"]
-FUNDING_TYPE_CHOICES = ["Grant","Loan","Financing","Subsidy","Tax Credit","Credit"]
+FUNDING_TYPE_CHOICES = [
+    "Grant",
+    "Loan",
+    "Financing",
+    "Subsidy",
+    "Tax Credit",
+    "Rebate",
+    "Credit",
+    "Equity Investment",
+]
 FUND_AMOUNT_CHOICES = ["Under 5K","5K–25K","25K–100K","100K–500K","500K+","Unknown / Not stated"]
 
 FUZZY_THR = 70
-sort_mode = st.sidebar.selectbox("Sort results by",
-                                 ["Relevance","Program Name (A–Z)","Last Checked (newest)"],
-                                 index=0)
-page_size = st.sidebar.selectbox("Results per page", [10, 25, 50], index=1)
+sort_mode = st.sidebar.selectbox(
+    "Sort results by",
+    ["Relevance","Program Name (A–Z)","Last Checked (newest)"],
+    index=0,
+    help="Relevance uses fuzzy keyword matching across program name, description, eligibility and tags.",
+)
+page_size = st.sidebar.selectbox(
+    "Results per page",
+    [10, 25, 50],
+    index=1,
+    help="Change how many programs appear on each page of results.",
+)
 
 REGION_MATCH_TABLE = {
     "Calgary": ["calgary","southern alberta","foothills"],
@@ -621,9 +714,12 @@ def filtered_except(df_in, q_text, selected_regions, selected_ftypes,
     return out
 
 # ---------------------------- Search & gather ----------------------------
-q = st.text_input("🔍 Search programs", "",
-                  key="q",
-                  placeholder="Try 'grant', 'mentorship', or 'startup'…")
+q = st.text_input(
+    "🔍 Search programs",
+    "",
+    key="q",
+    placeholder="Try 'grant', 'mentorship', or 'startup'…",
+)
 st.caption("Tip: Search matches similar terms (e.g., typing **mentor** finds **mentorship**).")
 
 all_activity_norm  = sorted({v for S in df["__activity_norm_set"] for v in S})
@@ -683,12 +779,26 @@ def render_filter_checklist(label, options, counts, state_prefix):
                 picked.add(opt)
     return picked
 
-sel_regions   = render_filter_checklist("Region", REGION_CHOICES, region_counts, "region")
+# Funding filters first (best-practice order), then audience/industry, stage, activity, region
 sel_ftypes    = render_filter_checklist("Funding (Type)", FUNDING_TYPE_CHOICES, ftype_counts, "ftype")
 sel_famts     = render_filter_checklist("Funding (Amount – Buckets)", FUND_AMOUNT_CHOICES, famt_counts, "famt")
+sel_audience  = render_filter_checklist("Audience & Industry", all_audience_norm, audience_counts, "audience")
 sel_stage     = render_filter_checklist("Business Stage", all_stage_norm, stage_counts, "stage")
 sel_activity  = render_filter_checklist("Activity", all_activity_norm, activity_counts, "activity")
-sel_audience  = render_filter_checklist("Audience", all_audience_norm, audience_counts, "audience")
+sel_regions   = render_filter_checklist("Region", REGION_CHOICES, region_counts, "region")
+
+# Help / tooltip-style explainer for funding types
+with st.sidebar.expander("About funding types", expanded=False):
+    st.markdown("""
+**Grants** – non-repayable funding when you meet the program conditions.  
+**Loans** – funding you must repay, usually with interest.  
+**Financing** – broader capital tools (e.g., facilities, blended financing, non-equity capital).  
+**Equity Investment** – investors take an ownership stake (e.g., angels, venture capital).  
+**Subsidy** – funding that offsets specific costs (e.g., wages, training, fees).  
+**Tax Credit** – reduces taxes owing based on eligible spending or investment.  
+**Rebate** – money refunded after you spend on eligible activities.  
+**Credit / Line of Credit** – revolving credit limits you can draw down as needed.
+""")
 
 selected_regions, selected_ftypes, selected_famts = sel_regions, sel_ftypes, sel_famts
 selected_stage, selected_activity, selected_audience = sel_stage, sel_activity, sel_audience
@@ -741,12 +851,12 @@ st.markdown(f"### {len(filtered)} Programs Found")
 def render_chips():
     chips = []
     if q: chips.append(("Search", q, "search", None))
-    for r in sorted(selected_regions):   chips.append(("Region", r, "region", r))
     for f in sorted(selected_ftypes):    chips.append(("Funding Type", f, "ftype", f))
-    for a in sorted(selected_activity):  chips.append(("Activity", a, "activity", a))
-    for s in sorted(selected_stage):     chips.append(("Stage", s, "stage", s))
     for b in sorted(selected_famts):     chips.append(("Amount", b, "famt", b))
-    for au in sorted(selected_audience): chips.append(("Audience", au, "audience", au))
+    for au in sorted(selected_audience): chips.append(("Audience & Industry", au, "audience", au))
+    for s in sorted(selected_stage):     chips.append(("Stage", s, "stage", s))
+    for a in sorted(selected_activity):  chips.append(("Activity", a, "activity", a))
+    for r in sorted(selected_regions):   chips.append(("Region", r, "region", r))
     if not chips: return
     st.write("")
     row_cols = 5
@@ -867,7 +977,7 @@ else:
                 unsafe_allow_html=True
             )
 
-            # Funding + Eligibility strip (no borders; visual separation handled by spacing)
+            # Funding + Eligibility strip
             fund_label = ""
             if fund_bucket and fund_bucket.strip().lower() != UNKNOWN:
                 fund_label = add_dollar_signs(fund_bucket)
@@ -882,7 +992,7 @@ else:
 
             st.markdown(f"<div class='meta-info'>{meta_html}</div>", unsafe_allow_html=True)
 
-            # Actions row: Website · Email · Call · ☆/★ Favourite (all inline, text-style)
+            # Actions row: Website · Email · Call · ☆/★ Favourite
             st.markdown("<div class='actions-row'>", unsafe_allow_html=True)
 
             cols = st.columns(4)
@@ -900,12 +1010,12 @@ else:
                 if email:
                     st.markdown(f"[Email](mailto:{email})", unsafe_allow_html=True)
 
-            # Call (text-link style, toggles numbers)
+            # Call (inline control toggles numbers)
             with cols[2]:
                 if phone_display_multi:
                     call_clicked = st.button("Call", key=f"call_{key}")
 
-            # Favourite (text-link style)
+            # Favourite (inline control)
             with cols[3]:
                 fav_on = key in st.session_state.favorites
                 fav_label = "★ Favourite" if fav_on else "☆ Favourite"
