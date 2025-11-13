@@ -3,7 +3,7 @@
 # • Sticky GoA header with hover/focus states
 # • All info visually inside each card (using container + :has marker)
 # • Actions row: Website · Email · Call · ☆/★ Favourite inline
-# • Call label hides phone number in text but still uses tel: link
+# • Call button reveals phone number(s), with multiple separated by " | "
 # • Hide Call when phone is missing or "not publicly listed – use contact page"
 # • Smart punctuation preserved; bullets/emojis stripped; mojibake fixed
 # • GoA logo embedded (SVG/PNG). Optional GoA CSS injection if files exist
@@ -138,15 +138,16 @@ div[data-testid="stVerticalBlock"]:has(.pf-card-marker):hover{
   border:1px solid #F2BAC1;
 }
 
-/* Funding + Eligibility strip */
+/* Funding + Eligibility strip
+   (no top/bottom borders to remove the lines between sections) */
 .meta-info{
   display:flex;
   gap:16px;
   flex-wrap:wrap;
-  margin:6px 0 6px 0;
-  padding:6px 0;
-  border-top:1px solid var(--border);
-  border-bottom:1px solid var(--border);
+  margin:6px 0 0 0;
+  padding:6px 0 0 0;
+  border-top:none;
+  border-bottom:none;
 }
 .kv strong{ font-weight:700; }
 
@@ -382,7 +383,7 @@ def freshness_label(days):
         return f"{days//30}mo ago"
     return f"{days//365}y ago"
 
-# Phone normalizer
+# Phone helpers
 def normalize_phone(phone: str):
     """Return (display, tel) where display is XXX-XXX-XXXX and tel is +1XXXXXXXXXX."""
     if not phone:
@@ -399,6 +400,23 @@ def normalize_phone(phone: str):
     display = f"{digits[0:3]}-{digits[3:6]}-{digits[6:10]}"
     tel = f"+{country}{digits}"
     return display, tel
+
+def format_phone_multi(phone: str) -> str:
+    """
+    Split multiple phone numbers and format them as 'xxx-xxx-xxxx | yyy-yyy-yyyy'.
+    Falls back to the original chunk if normalize_phone can't format it.
+    """
+    if not phone:
+        return ""
+    chunks = re.split(r"[,/;]|\\bor\\b", str(phone))
+    parts = []
+    for ch in chunks:
+        ch = ch.strip()
+        if not ch:
+            continue
+        display, _tel = normalize_phone(ch)
+        parts.append(display or ch)
+    return " | ".join(parts)
 
 # ---------------------------- Normalization ----------------------------
 ACTIVITY_NORMALIZATION_MAP = {
@@ -775,7 +793,9 @@ else:
         if "not publicly listed" in phone_raw.lower() and "contact page" in phone_raw.lower():
             phone_raw = ""
 
-        phone_display, phone_tel = normalize_phone(phone_raw)
+        # Format one or more phone numbers for display (e.g. "403-xxx-xxxx | 780-xxx-xxxx")
+        phone_display_multi = format_phone_multi(phone_raw)
+
         key     = str(row.get(COLS["KEY"], f"k{i}"))
 
         with st.container():
@@ -800,7 +820,7 @@ else:
                 unsafe_allow_html=True
             )
 
-            # Funding + Eligibility strip
+            # Funding + Eligibility strip (no borders; visual separation handled by spacing)
             fund_label = ""
             if fund_bucket and fund_bucket.strip().lower() != UNKNOWN:
                 fund_label = add_dollar_signs(fund_bucket)
@@ -818,26 +838,39 @@ else:
             # Actions row: Website · Email · Call · ☆/★ Favourite
             st.markdown("<div class='actions-row'>", unsafe_allow_html=True)
 
+            # Website / Email as text links
             parts = []
             if website:
                 url = website if website.startswith(("http://","https://")) else f"https://{website}"
                 parts.append(f'<a class="goa-link" href="{url}" target="_blank" rel="noopener">Website</a>')
             if email:
                 parts.append(f'<a class="goa-link" href="mailto:{email}">Email</a>')
-            if phone_display:
-                # Label only "Call" – number not shown
-                parts.append(f'<a class="goa-link" href="tel:{phone_tel}">Call</a>')
 
             if parts:
                 links_html = ' <span class="actions-dot">•</span> '.join(parts)
                 st.markdown(f"<div class='actions-links'>{links_html}</div>", unsafe_allow_html=True)
 
-            # Favourite inline, styled like a link
+            # Call + Favourite as inline text buttons (styled via .actions-row CSS)
+            call_clicked = False
+            if phone_display_multi:
+                call_clicked = st.button("Call", key=f"call_{key}")
+
             fav_on = key in st.session_state.favorites
             fav_label = "★ Favourite" if fav_on else "☆ Favourite"
             fav_clicked = st.button(fav_label, key=f"fav_{key}")
 
             st.markdown("</div>", unsafe_allow_html=True)  # close actions-row
+
+            # Toggle phone number display when Call is clicked
+            if phone_display_multi:
+                call_state_key = f"show_call_{key}"
+                if call_clicked:
+                    st.session_state[call_state_key] = not st.session_state.get(call_state_key, False)
+                if st.session_state.get(call_state_key, False):
+                    st.markdown(
+                        f"<small><strong>Call:</strong> {phone_display_multi}</small>",
+                        unsafe_allow_html=True,
+                    )
 
             if fav_clicked:
                 if fav_on:
