@@ -812,7 +812,10 @@ def render_funding_type_filter(label, options, counts, state_prefix="ftype"):
             disabled = c == 0
 
             cols = st.columns([4, 1])
-            info_key = f"info_{state_prefix}_{opt}"
+
+            # Separate keys: one for the button widget, one for the info state
+            info_state_key = f"info_state_{state_prefix}_{opt}"
+            info_button_key = f"info_btn_{state_prefix}_{opt}"
 
             # Checkbox
             with cols[0]:
@@ -826,11 +829,11 @@ def render_funding_type_filter(label, options, counts, state_prefix="ftype"):
 
             # ℹ️ button
             with cols[1]:
-                if st.button("ℹ️", key=info_key):
-                    st.session_state[info_key] = not st.session_state.get(info_key, False)
+                if st.button("ℹ️", key=info_button_key):
+                    st.session_state[info_state_key] = not st.session_state.get(info_state_key, False)
 
             # Description when info is toggled on
-            if st.session_state.get(info_key, False):
+            if st.session_state.get(info_state_key, False):
                 desc = FUNDING_TYPE_DESCRIPTIONS.get(opt, "")
                 if desc:
                     st.caption(desc)
