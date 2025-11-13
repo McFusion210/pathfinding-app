@@ -10,8 +10,9 @@
 # • ARIA: role="main" on results, “Skip to results” link
 # • Empty-state message, chips, pagination, sorting
 # • Audience & industry filter derived from Meta Tags
-# • Funding-type help panel in sidebar (explains Grants, Loans, Tax Credits, etc.)
-# • ℹ️ info icon on explainer + all filter headings
+# • Funding-type help panel in sidebar
+# • Business Supports filter (was “Activity”)
+# • Per–Funding Type ℹ info buttons with definitions
 
 import re, base64
 from pathlib import Path
@@ -485,6 +486,18 @@ FUNDING_TYPE_MAP = {
     "co invest": "Equity Investment",
 }
 
+# Short, plain-language definitions for each funding type (GoA-friendly tone)
+FUNDING_TYPE_DESCRIPTIONS = {
+    "Grant": "Non-repayable funding that supports eligible activities when program conditions are met.",
+    "Loan": "Funding that must be repaid, usually with interest and defined repayment terms.",
+    "Financing": "Access to capital such as facilities or blended products that may combine different tools.",
+    "Subsidy": "Support that offsets specific costs, for example wages, training, or program fees.",
+    "Tax Credit": "A credit that reduces taxes payable based on eligible spending or investment.",
+    "Rebate": "Funding paid after you incur eligible costs and submit proof of spending.",
+    "Credit": "A revolving credit limit or line of credit that you can draw from as needed.",
+    "Equity Investment": "Investment where the funder receives an ownership stake in the business.",
+}
+
 AUDIENCE_NORMALIZATION_MAP = {
     # Demographic / group audiences
     "women": "Women",
@@ -638,7 +651,7 @@ STAGE_CANON_CHOICES = ["Startup / Early Stage", "Growth / Scale", "Mature / Esta
 
 # ---------------------------- Sidebar filters ----------------------------
 st.sidebar.header("Filters")
-st.sidebar.caption("Use these filters to narrow down programs by funding, audience, stage, activity and region.")
+st.sidebar.caption("Use these filters to narrow down programs by funding, audience, stage, business supports and region.")
 
 REGION_CHOICES = ["Calgary","Edmonton","Rural Alberta","Canada"]
 FUNDING_TYPE_CHOICES = [
@@ -786,25 +799,61 @@ def render_filter_checklist(label, options, counts, state_prefix):
                 picked.add(opt)
     return picked
 
-# Funding filters first (best-practice order), with ℹ️ icons
-sel_ftypes    = render_filter_checklist("Funding (Type) ℹ️", FUNDING_TYPE_CHOICES, ftype_counts, "ftype")
-sel_famts     = render_filter_checklist("Funding (Amount – Buckets) ℹ️", FUND_AMOUNT_CHOICES, famt_counts, "famt")
-sel_audience  = render_filter_checklist("Audience & Industry ℹ️", all_audience_norm, audience_counts, "audience")
-sel_stage     = render_filter_checklist("Business Stage ℹ️", stage_options, stage_counts, "stage")
-sel_activity  = render_filter_checklist("Activity ℹ️", all_activity_norm, activity_counts, "activity")
-sel_regions   = render_filter_checklist("Region ℹ️", REGION_CHOICES, region_counts, "region")
+def render_funding_type_filter(label, options, counts, state_prefix="ftype"):
+    """Custom renderer for Funding Type: checkbox + ℹ info button per option."""
+    picked = set()
+    with st.sidebar.expander(label, expanded=False):
+        if st.button("Clear", key=f"clear_{state_prefix}"):
+            for opt in options:
+                st.session_state[f"{state_prefix}_{opt}"] = False
 
-# Help / tooltip-style explainer for funding types
-with st.sidebar.expander("About funding types ℹ️", expanded=False):
+        for opt in options:
+            c = counts.get(opt, 0)
+            disabled = c == 0
+
+            cols = st.columns([4, 1])
+            info_key = f"info_{state_prefix}_{opt}"
+
+            # Checkbox
+            with cols[0]:
+                val = st.checkbox(
+                    f"{opt} ({c})",
+                    key=f"{state_prefix}_{opt}",
+                    disabled=disabled,
+                )
+                if val and not disabled:
+                    picked.add(opt)
+
+            # ℹ️ button
+            with cols[1]:
+                if st.button("ℹ️", key=info_key):
+                    st.session_state[info_key] = not st.session_state.get(info_key, False)
+
+            # Description when info is toggled on
+            if st.session_state.get(info_key, False):
+                desc = FUNDING_TYPE_DESCRIPTIONS.get(opt, "")
+                if desc:
+                    st.caption(desc)
+
+    return picked
+
+# Funding filters first (best-practice order), Funding Type uses per-option ℹ
+sel_ftypes    = render_funding_type_filter("Funding Type", FUNDING_TYPE_CHOICES, ftype_counts, "ftype")
+sel_famts     = render_filter_checklist("Funding Amount", FUND_AMOUNT_CHOICES, famt_counts, "famt")
+sel_audience  = render_filter_checklist("Audience & Industry", all_audience_norm, audience_counts, "audience")
+sel_stage     = render_filter_checklist("Business Stage", stage_options, stage_counts, "stage")
+sel_activity  = render_filter_checklist("Business Supports", all_activity_norm, activity_counts, "activity")
+sel_regions   = render_filter_checklist("Region", REGION_CHOICES, region_counts, "region")
+
+# Optional explainer (no icons in heading)
+with st.sidebar.expander("About funding types", expanded=False):
     st.markdown("""
-**Grants** – non-repayable funding when you meet the program conditions.  
-**Loans** – funding you must repay, usually with interest.  
-**Financing** – broader capital tools (e.g., facilities, blended financing, non-equity capital).  
-**Equity Investment** – investors take an ownership stake (e.g., angels, venture capital).  
-**Subsidy** – funding that offsets specific costs (e.g., wages, training, fees).  
-**Tax Credit** – reduces taxes owing based on eligible spending or investment.  
-**Rebate** – money refunded after you spend on eligible activities.  
-**Credit / Line of Credit** – revolving credit limits you can draw down as needed.
+Use **Funding Type** to select the broad kind of financial support:
+
+- **Grants** and **rebates** generally do not need to be repaid.
+- **Loans**, **financing** and **credit** are repayable forms of capital.
+- **Tax credits** and **subsidies** reduce specific costs or taxes.
+- **Equity investment** provides capital in exchange for ownership.
 """)
 
 selected_regions, selected_ftypes, selected_famts = sel_regions, sel_ftypes, sel_famts
@@ -816,7 +865,7 @@ if st.sidebar.button("Clear all filters"):
                for prefix in ("region_","ftype_","famt_","stage","activity_","audience")):
             st.session_state[k] = False
     st.session_state["q"] = ""
-    st.experimental_rerun()
+    st.rerun()
 
 # ---------------------------- Apply filters ----------------------------
 def apply_filters(df_in: pd.DataFrame) -> pd.DataFrame:
@@ -862,7 +911,7 @@ def render_chips():
     for b in sorted(selected_famts):     chips.append(("Amount", b, "famt", b))
     for au in sorted(selected_audience): chips.append(("Audience & Industry", au, "audience", au))
     for s in sorted(selected_stage):     chips.append(("Stage", s, "stage", s))
-    for a in sorted(selected_activity):  chips.append(("Activity", a, "activity", a))
+    for a in sorted(selected_activity):  chips.append(("Business Supports", a, "activity", a))
     for r in sorted(selected_regions):   chips.append(("Region", r, "region", r))
     if not chips: return
     st.write("")
@@ -879,7 +928,7 @@ def render_chips():
                     st.session_state["q"] = ""
                 elif prefix in ("region","ftype","famt","stage","activity","audience") and opt is not None:
                     st.session_state[f"{prefix}_{opt}"] = False
-                st.experimental_rerun()
+                st.rerun()
             idx += 1
 
 render_chips()
@@ -909,10 +958,12 @@ if total > 0:
 prev_col, _, next_col = st.columns([0.1,0.8,0.1])
 with prev_col:
     if st.button("◀ Prev", disabled=page==0):
-        st.session_state.page_idx = max(0, page-1); st.experimental_rerun()
+        st.session_state.page_idx = max(0, page-1)
+        st.rerun()
 with next_col:
     if st.button("Next ▶", disabled=page>=max_page):
-        st.session_state.page_idx = min(max_page, page+1); st.experimental_rerun()
+        st.session_state.page_idx = min(max_page, page+1)
+        st.rerun()
 
 st.markdown('<div id="results-main" role="main" class="goa-searchresults"></div>',
             unsafe_allow_html=True)
@@ -1047,7 +1098,7 @@ else:
                     st.session_state.favorites.remove(key)
                 else:
                     st.session_state.favorites.add(key)
-                st.experimental_rerun()
+                st.rerun()
 
             if len(desc_full) > 240:
                 with st.expander("More details"):
