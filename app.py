@@ -170,7 +170,14 @@ div[data-testid="stVerticalBlock"]:has(.pf-card-marker):hover{
   border-radius:4px;
 }
 
-.actions-dot{ color:#9CA3AF; }
+/* Ensure all links inside program cards share the same link colour */
+div[data-testid="stVerticalBlock"]:has(.pf-card-marker) a{
+  color:var(--link) !important;
+  text-decoration:underline;
+}
+div[data-testid="stVerticalBlock"]:has(.pf-card-marker) a:hover{
+  opacity:.85;
+}
 
 /* Make Call / Favourite buttons inside cards look like text links */
 div[data-testid="stVerticalBlock"]:has(.pf-card-marker) .stButton > button{
@@ -1068,7 +1075,7 @@ if st.sidebar.button("Clear all filters"):
             for prefix in (
                 "region_",
                 "ftype_",
-                "famt_",
+                "famt",
                 "stage",
                 "activity_",
                 "audience",
@@ -1130,7 +1137,7 @@ filtered = sort_df(filtered)
 
 st.markdown(f"### {len(filtered)} Programs Found")
 
-# Chips
+# ---------------------------- Chips ----------------------------
 def render_chips():
     chips = []
     if q:
@@ -1147,11 +1154,15 @@ def render_chips():
         chips.append(("Business Supports", a, "activity", a))
     for r in sorted(selected_regions):
         chips.append(("Region", r, "region", r))
+
     if not chips:
-        return
+        return []
+
     st.write("")
     row_cols = 5
     idx = 0
+    clear_actions = []  # (prefix, opt) pairs to clear after rendering
+
     while idx < len(chips):
         cols = st.columns(row_cols)
         for c in range(row_cols):
@@ -1160,24 +1171,28 @@ def render_chips():
             (k, v, prefix, opt) = chips[idx]
             label = f"{k}: {v}  ✕"
             if cols[c].button(label, key=f"chip_{prefix}_{opt or 'q'}"):
-                if prefix == "search":
-                    st.session_state["q"] = ""
-                elif prefix in (
-                    "region",
-                    "ftype",
-                    "famt",
-                    "stage",
-                    "activity",
-                    "audience",
-                ) and opt is not None:
-                    st.session_state[f"{prefix}_{opt}"] = False
-                st.rerun()
+                clear_actions.append((prefix, opt))
             idx += 1
 
+    return clear_actions
 
-render_chips()
 
-# Export
+clear_actions = render_chips()
+
+# Apply chip clear actions AFTER rendering widgets
+if clear_actions:
+    for prefix, opt in clear_actions:
+        if prefix == "search":
+            st.session_state["q"] = ""
+        elif (
+            prefix
+            in ("region", "ftype", "famt", "stage", "activity", "audience")
+            and opt is not None
+        ):
+            st.session_state[f"{prefix}_{opt}"] = False
+    st.rerun()
+
+# ---------------------------- Export ----------------------------
 csv_bytes = filtered.to_csv(index=False).encode("utf-8")
 st.download_button(
     "Download results (CSV)",
