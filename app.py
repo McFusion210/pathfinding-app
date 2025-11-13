@@ -9,6 +9,7 @@
 # • GoA logo embedded (SVG/PNG). Optional GoA CSS injection if files exist
 # • ARIA: role="main" on results, “Skip to results” link
 # • Empty-state message, chips, pagination, sorting
+# • Audience filter derived from Meta Tags
 
 import re, base64
 from pathlib import Path
@@ -179,26 +180,26 @@ div[data-testid="stVerticalBlock"]:has(.pf-card-marker):hover{
 
 .actions-dot{ color:#9CA3AF; }
 
-/* Make Call/Favourite buttons (inside actions-row) look like text links */
-.actions-row div.stButton > button{
-  background:none;
-  border:none;
+/* Make Call/Favourite controls inside actions-row look like plain text links */
+.actions-row button{
+  background:none !important;
+  border:none !important;
   padding:0;
   margin:0;
   color:var(--link);
   text-decoration:underline;
   font-size:var(--fs-body);
   cursor:pointer;
-  box-shadow:none;
+  box-shadow:none !important;
+  border-radius:0 !important;
 }
-.actions-row div.stButton > button:hover{
+.actions-row button:hover{
   opacity:.85;
   text-decoration:underline;
 }
-.actions-row div.stButton > button:focus{
+.actions-row button:focus{
   outline:3px solid #feba35;
   outline-offset:2px;
-  border-radius:4px;
 }
 
 /* Keep other primary buttons slightly rounded */
@@ -453,6 +454,30 @@ FUNDING_TYPE_MAP = {
     "tax credit":"Tax Credit","taxcredit":"Tax Credit",
     "credit":"Credit","line of credit":"Credit",
 }
+AUDIENCE_NORMALIZATION_MAP = {
+    "women":"Women",
+    "woman":"Women",
+    "female":"Women",
+    "indigenous":"Indigenous",
+    "first nation":"Indigenous",
+    "first nations":"Indigenous",
+    "aboriginal":"Indigenous",
+    "metis":"Indigenous",
+    "inuit":"Indigenous",
+    "black":"Black entrepreneurs",
+    "afro":"Black entrepreneurs",
+    "immigrant":"Immigrants / Newcomers",
+    "newcomer":"Immigrants / Newcomers",
+    "refugee":"Immigrants / Newcomers",
+    "youth":"Youth",
+    "student":"Students",
+    "rural":"Rural",
+    "lgbt":"2SLGBTQ+",
+    "2slgbt":"2SLGBTQ+",
+    "queer":"2SLGBTQ+",
+    "veteran":"Veterans",
+    "disabil":"Persons with disabilities",
+}
 
 def normalize_activity_tag(tag: str) -> str:
     t = (tag or "").strip().lower()
@@ -464,6 +489,13 @@ def normalize_activity_tag(tag: str) -> str:
 def normalize_stage_tag(tag: str) -> str:
     t = (tag or "").strip().lower()
     for needle, canon in STAGE_NORMALIZATION_MAP.items():
+        if needle in t:
+            return canon
+    return ""
+
+def normalize_audience_tag(tag: str) -> str:
+    t = (tag or "").strip().lower()
+    for needle, canon in AUDIENCE_NORMALIZATION_MAP.items():
         if needle in t:
             return canon
     return ""
@@ -492,6 +524,13 @@ def row_stage_norm_set(raw_tag_field: str) -> set[str]:
         if normalize_stage_tag(rt)
     }
 
+def row_audience_norm_set(raw_tag_field: str) -> set[str]:
+    return {
+        normalize_audience_tag(rt)
+        for rt in parse_tags_field_clean(raw_tag_field)
+        if normalize_audience_tag(rt)
+    }
+
 # ---------------------------- Derived columns ----------------------------
 df["__funding_bucket"] = df[COLS["FUNDING"]].apply(funding_bucket)
 
@@ -512,9 +551,10 @@ if df[COLS["KEY"]].isna().any():
         .str.lower().str.replace(r"[^a-z0-9]+", "", regex=True)
     )
 
-df["__activity_norm_set"] = df[COLS["TAGS"]].fillna("").astype(str).apply(row_activity_norm_set)
-df["__stage_norm_set"]    = df[COLS["TAGS"]].fillna("").astype(str).apply(row_stage_norm_set)
-df["__fund_type_set"]     = df[COLS["TAGS"]].fillna("").astype(str).apply(detect_funding_types_from_tags)
+df["__activity_norm_set"]  = df[COLS["TAGS"]].fillna("").astype(str).apply(row_activity_norm_set)
+df["__stage_norm_set"]     = df[COLS["TAGS"]].fillna("").astype(str).apply(row_stage_norm_set)
+df["__fund_type_set"]      = df[COLS["TAGS"]].fillna("").astype(str).apply(detect_funding_types_from_tags)
+df["__audience_norm_set"]  = df[COLS["TAGS"]].fillna("").astype(str).apply(row_audience_norm_set)
 
 # ---------------------------- Sidebar filters ----------------------------
 st.sidebar.header("Filters")
@@ -560,8 +600,8 @@ def fuzzy_mask(df_in, q_text, threshold=70):
     return blobs.apply(lambda blob: fuzz.partial_ratio(q_text.lower(), blob) >= threshold)
 
 def filtered_except(df_in, q_text, selected_regions, selected_ftypes,
-                    selected_famts, selected_stage, selected_activity, *,
-                    except_dim):
+                    selected_famts, selected_stage, selected_activity,
+                    selected_audience, *, except_dim):
     out = df_in.copy()
     if q_text:
         out = out[fuzzy_mask(out, q_text, threshold=FUZZY_THR)]
@@ -576,6 +616,8 @@ def filtered_except(df_in, q_text, selected_regions, selected_ftypes,
         out = out[out["__stage_norm_set"].apply(lambda s: bool(s & selected_stage))]
     if except_dim != "activity" and selected_activity:
         out = out[out["__activity_norm_set"].apply(lambda s: bool(s & selected_activity))]
+    if except_dim != "audience" and selected_audience:
+        out = out[out["__audience_norm_set"].apply(lambda s: bool(s & selected_audience))]
     return out
 
 # ---------------------------- Search & gather ----------------------------
@@ -584,40 +626,46 @@ q = st.text_input("🔍 Search programs", "",
                   placeholder="Try 'grant', 'mentorship', or 'startup'…")
 st.caption("Tip: Search matches similar terms (e.g., typing **mentor** finds **mentorship**).")
 
-all_activity_norm = sorted({v for S in df["__activity_norm_set"] for v in S})
-all_stage_norm    = sorted({v for S in df["__stage_norm_set"]    for v in S})
+all_activity_norm  = sorted({v for S in df["__activity_norm_set"] for v in S})
+all_stage_norm     = sorted({v for S in df["__stage_norm_set"]    for v in S})
+all_audience_norm  = sorted({v for S in df["__audience_norm_set"] for v in S})
 
-selected_regions  = {opt for opt in REGION_CHOICES       if st.session_state.get(f"region_{opt}")}
-selected_ftypes   = {opt for opt in FUNDING_TYPE_CHOICES if st.session_state.get(f"ftype_{opt}")}
-selected_famts    = {opt for opt in FUND_AMOUNT_CHOICES  if st.session_state.get(f"famt_{opt}")}
-selected_stage    = {opt for opt in all_stage_norm       if st.session_state.get(f"stage_{opt}")}
-selected_activity = {opt for opt in all_activity_norm    if st.session_state.get(f"activity_{opt}")}
+selected_regions   = {opt for opt in REGION_CHOICES       if st.session_state.get(f"region_{opt}")}
+selected_ftypes    = {opt for opt in FUNDING_TYPE_CHOICES if st.session_state.get(f"ftype_{opt}")}
+selected_famts     = {opt for opt in FUND_AMOUNT_CHOICES  if st.session_state.get(f"famt_{opt}")}
+selected_stage     = {opt for opt in all_stage_norm       if st.session_state.get(f"stage_{opt}")}
+selected_activity  = {opt for opt in all_activity_norm    if st.session_state.get(f"activity_{opt}")}
+selected_audience  = {opt for opt in all_audience_norm    if st.session_state.get(f"audience_{opt}")}
 
 df_except_region   = filtered_except(df, q, selected_regions, selected_ftypes,
                                      selected_famts, selected_stage, selected_activity,
-                                     except_dim="region")
+                                     selected_audience, except_dim="region")
 df_except_ftype    = filtered_except(df, q, selected_regions, selected_ftypes,
                                      selected_famts, selected_stage, selected_activity,
-                                     except_dim="ftype")
+                                     selected_audience, except_dim="ftype")
 df_except_famt     = filtered_except(df, q, selected_regions, selected_ftypes,
                                      selected_famts, selected_stage, selected_activity,
-                                     except_dim="famt")
+                                     selected_audience, except_dim="famt")
 df_except_stage    = filtered_except(df, q, selected_regions, selected_ftypes,
                                      selected_famts, selected_stage, selected_activity,
-                                     except_dim="stage")
+                                     selected_audience, except_dim="stage")
 df_except_activity = filtered_except(df, q, selected_regions, selected_ftypes,
                                      selected_famts, selected_stage, selected_activity,
-                                     except_dim="activity")
+                                     selected_audience, except_dim="activity")
+df_except_audience = filtered_except(df, q, selected_regions, selected_ftypes,
+                                     selected_famts, selected_stage, selected_activity,
+                                     selected_audience, except_dim="audience")
 
-region_counts   = {r: int(df_except_region[COLS["REGION"]].astype(str)
-                          .apply(lambda v, r=r: region_match(v, r)).sum())
-                   for r in REGION_CHOICES}
-ftype_counts    = {f: int(df_except_ftype["__fund_type_set"]
-                          .apply(lambda s, f=f: f in s).sum())
-                   for f in FUNDING_TYPE_CHOICES}
-famt_counts     = df_except_famt["__funding_bucket"].value_counts().to_dict()
-stage_counts    = count_by_option(df_except_stage["__stage_norm_set"])
-activity_counts = count_by_option(df_except_activity["__activity_norm_set"])
+region_counts    = {r: int(df_except_region[COLS["REGION"]].astype(str)
+                           .apply(lambda v, r=r: region_match(v, r)).sum())
+                    for r in REGION_CHOICES}
+ftype_counts     = {f: int(df_except_ftype["__fund_type_set"]
+                           .apply(lambda s, f=f: f in s).sum())
+                    for f in FUNDING_TYPE_CHOICES}
+famt_counts      = df_except_famt["__funding_bucket"].value_counts().to_dict()
+stage_counts     = count_by_option(df_except_stage["__stage_norm_set"])
+activity_counts  = count_by_option(df_except_activity["__activity_norm_set"])
+audience_counts  = count_by_option(df_except_audience["__audience_norm_set"])
 
 def render_filter_checklist(label, options, counts, state_prefix):
     picked = set()
@@ -635,19 +683,20 @@ def render_filter_checklist(label, options, counts, state_prefix):
                 picked.add(opt)
     return picked
 
-sel_regions  = render_filter_checklist("Region", REGION_CHOICES, region_counts, "region")
-sel_ftypes   = render_filter_checklist("Funding (Type)", FUNDING_TYPE_CHOICES, ftype_counts, "ftype")
-sel_famts    = render_filter_checklist("Funding (Amount – Buckets)", FUND_AMOUNT_CHOICES, famt_counts, "famt")
-sel_stage    = render_filter_checklist("Business Stage", all_stage_norm, stage_counts, "stage")
-sel_activity = render_filter_checklist("Activity", all_activity_norm, activity_counts, "activity")
+sel_regions   = render_filter_checklist("Region", REGION_CHOICES, region_counts, "region")
+sel_ftypes    = render_filter_checklist("Funding (Type)", FUNDING_TYPE_CHOICES, ftype_counts, "ftype")
+sel_famts     = render_filter_checklist("Funding (Amount – Buckets)", FUND_AMOUNT_CHOICES, famt_counts, "famt")
+sel_stage     = render_filter_checklist("Business Stage", all_stage_norm, stage_counts, "stage")
+sel_activity  = render_filter_checklist("Activity", all_activity_norm, activity_counts, "activity")
+sel_audience  = render_filter_checklist("Audience", all_audience_norm, audience_counts, "audience")
 
 selected_regions, selected_ftypes, selected_famts = sel_regions, sel_ftypes, sel_famts
-selected_stage,  selected_activity                 = sel_stage, sel_activity
+selected_stage, selected_activity, selected_audience = sel_stage, sel_activity, sel_audience
 
 if st.sidebar.button("Clear all filters"):
     for k in list(st.session_state.keys()):
         if any(k.startswith(prefix)
-               for prefix in ("region_","ftype_","famt_","stage","activity_")):
+               for prefix in ("region_","ftype_","famt_","stage","activity_","audience")):
             st.session_state[k] = False
     st.session_state["q"] = ""
     st.experimental_rerun()
@@ -667,6 +716,8 @@ def apply_filters(df_in: pd.DataFrame) -> pd.DataFrame:
         out = out[out["__stage_norm_set"].apply(lambda s: bool(s & selected_stage))]
     if selected_activity:
         out = out[out["__activity_norm_set"].apply(lambda s: bool(s & selected_activity))]
+    if selected_audience:
+        out = out[out["__audience_norm_set"].apply(lambda s: bool(s & selected_audience))]
     return out
 
 filtered = apply_filters(df)
@@ -690,11 +741,12 @@ st.markdown(f"### {len(filtered)} Programs Found")
 def render_chips():
     chips = []
     if q: chips.append(("Search", q, "search", None))
-    for r in sorted(selected_regions):  chips.append(("Region", r, "region", r))
-    for f in sorted(selected_ftypes):   chips.append(("Funding Type", f, "ftype", f))
-    for a in sorted(selected_activity): chips.append(("Activity", a, "activity", a))
-    for s in sorted(selected_stage):    chips.append(("Stage", s, "stage", s))
-    for b in sorted(selected_famts):    chips.append(("Amount", b, "famt", b))
+    for r in sorted(selected_regions):   chips.append(("Region", r, "region", r))
+    for f in sorted(selected_ftypes):    chips.append(("Funding Type", f, "ftype", f))
+    for a in sorted(selected_activity):  chips.append(("Activity", a, "activity", a))
+    for s in sorted(selected_stage):     chips.append(("Stage", s, "stage", s))
+    for b in sorted(selected_famts):     chips.append(("Amount", b, "famt", b))
+    for au in sorted(selected_audience): chips.append(("Audience", au, "audience", au))
     if not chips: return
     st.write("")
     row_cols = 5
@@ -708,7 +760,7 @@ def render_chips():
             if cols[c].button(label, key=f"chip_{prefix}_{opt or 'q'}"):
                 if prefix == "search":
                     st.session_state["q"] = ""
-                elif prefix in ("region","ftype","famt","stage","activity") and opt is not None:
+                elif prefix in ("region","ftype","famt","stage","activity","audience") and opt is not None:
                     st.session_state[f"{prefix}_{opt}"] = False
                 st.experimental_rerun()
             idx += 1
@@ -848,12 +900,12 @@ else:
                 if email:
                     st.markdown(f"[Email](mailto:{email})", unsafe_allow_html=True)
 
-            # Call (text link style, toggles numbers)
+            # Call (text-link style, toggles numbers)
             with cols[2]:
                 if phone_display_multi:
                     call_clicked = st.button("Call", key=f"call_{key}")
 
-            # Favourite (text link style)
+            # Favourite (text-link style)
             with cols[3]:
                 fav_on = key in st.session_state.favorites
                 fav_label = "★ Favourite" if fav_on else "☆ Favourite"
