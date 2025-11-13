@@ -10,7 +10,8 @@
 # • ARIA: role="main" on results, “Skip to results” link
 # • Empty-state message, chips, pagination, sorting
 # • Audience & industry filter derived from Meta Tags
-# • Funding-type help panel in sidebar (explains Grants, Loans, Tax Credits, Rebates, Subsidies, etc.)
+# • Funding-type help panel in sidebar (explains Grants, Loans, Tax Credits, etc.)
+# • ℹ️ info icon on explainer + all filter headings
 
 import re, base64
 from pathlib import Path
@@ -156,7 +157,7 @@ div[data-testid="stVerticalBlock"]:has(.pf-card-marker):hover{
   margin-top:6px;
 }
 
-/* Inline link-style controls */
+/* Inline link-style anchors */
 .actions-links{
   display:flex;
   flex-wrap:wrap;
@@ -180,7 +181,7 @@ div[data-testid="stVerticalBlock"]:has(.pf-card-marker):hover{
 
 .actions-dot{ color:#9CA3AF; }
 
-/* Make secondary buttons (used for Call / Favourite / chips) look like text links */
+/* Make secondary buttons (Call / Favourite / chips) look like text links */
 button[data-testid="baseButton-secondary"]{
   background:none !important;
   border:none !important;
@@ -201,6 +202,10 @@ button[data-testid="baseButton-secondary"]:focus{
   outline:3px solid #feba35;
   outline-offset:2px;
 }
+
+/* Keep other primary buttons slightly rounded */
+button[kind="primary"]{ border-radius:8px; }
+</style>
 """, unsafe_allow_html=True)
 
 # ---------------------------- Optional: inline GoA CSS if present ----------------------------
@@ -426,6 +431,7 @@ ACTIVITY_NORMALIZATION_MAP = {
     "training":"Workshops / Training",
     "cohort":"Cohort / Program Participation","program":"Cohort / Program Participation",
 }
+
 STAGE_NORMALIZATION_MAP = {
     "startup":"Startup / Early Stage","start-up":"Startup / Early Stage",
     "early":"Startup / Early Stage",
@@ -442,7 +448,7 @@ STAGE_NORMALIZATION_MAP = {
     "existing":"Mature / Established",
 }
 
-# Funding types now distinguish Grant, Loan, Financing, Subsidy, Tax Credit, Rebate, Credit, Equity Investment
+# Funding types: Grant, Loan, Financing, Subsidy, Tax Credit, Rebate, Credit, Equity Investment
 FUNDING_TYPE_MAP = {
     "grant": "Grant",
     "non-repayable": "Grant",
@@ -627,6 +633,9 @@ df["__stage_norm_set"]     = df[COLS["TAGS"]].fillna("").astype(str).apply(row_s
 df["__fund_type_set"]      = df[COLS["TAGS"]].fillna("").astype(str).apply(detect_funding_types_from_tags)
 df["__audience_norm_set"]  = df[COLS["TAGS"]].fillna("").astype(str).apply(row_audience_norm_set)
 
+# Canonical stage options so Mature / Established always appears
+STAGE_CANON_CHOICES = ["Startup / Early Stage", "Growth / Scale", "Mature / Established"]
+
 # ---------------------------- Sidebar filters ----------------------------
 st.sidebar.header("Filters")
 st.sidebar.caption("Use these filters to narrow down programs by funding, audience, stage, activity and region.")
@@ -719,13 +728,15 @@ q = st.text_input(
 st.caption("Tip: Search matches similar terms (e.g., typing **mentor** finds **mentorship**).")
 
 all_activity_norm  = sorted({v for S in df["__activity_norm_set"] for v in S})
-all_stage_norm     = sorted({v for S in df["__stage_norm_set"]    for v in S})
+raw_stage_norm     = {v for S in df["__stage_norm_set"] for v in S}
+all_stage_norm     = sorted(raw_stage_norm)
+stage_options      = sorted(set(all_stage_norm) | set(STAGE_CANON_CHOICES))
 all_audience_norm  = sorted({v for S in df["__audience_norm_set"] for v in S})
 
 selected_regions   = {opt for opt in REGION_CHOICES       if st.session_state.get(f"region_{opt}")}
 selected_ftypes    = {opt for opt in FUNDING_TYPE_CHOICES if st.session_state.get(f"ftype_{opt}")}
 selected_famts     = {opt for opt in FUND_AMOUNT_CHOICES  if st.session_state.get(f"famt_{opt}")}
-selected_stage     = {opt for opt in all_stage_norm       if st.session_state.get(f"stage_{opt}")}
+selected_stage     = {opt for opt in stage_options        if st.session_state.get(f"stage_{opt}")}
 selected_activity  = {opt for opt in all_activity_norm    if st.session_state.get(f"activity_{opt}")}
 selected_audience  = {opt for opt in all_audience_norm    if st.session_state.get(f"audience_{opt}")}
 
@@ -775,16 +786,16 @@ def render_filter_checklist(label, options, counts, state_prefix):
                 picked.add(opt)
     return picked
 
-# Funding filters first (best-practice order), then audience/industry, stage, activity, region
-sel_ftypes    = render_filter_checklist("Funding (Type)", FUNDING_TYPE_CHOICES, ftype_counts, "ftype")
-sel_famts     = render_filter_checklist("Funding (Amount – Buckets)", FUND_AMOUNT_CHOICES, famt_counts, "famt")
-sel_audience  = render_filter_checklist("Audience & Industry", all_audience_norm, audience_counts, "audience")
-sel_stage     = render_filter_checklist("Business Stage", all_stage_norm, stage_counts, "stage")
-sel_activity  = render_filter_checklist("Activity", all_activity_norm, activity_counts, "activity")
-sel_regions   = render_filter_checklist("Region", REGION_CHOICES, region_counts, "region")
+# Funding filters first (best-practice order), with ℹ️ icons
+sel_ftypes    = render_filter_checklist("Funding (Type) ℹ️", FUNDING_TYPE_CHOICES, ftype_counts, "ftype")
+sel_famts     = render_filter_checklist("Funding (Amount – Buckets) ℹ️", FUND_AMOUNT_CHOICES, famt_counts, "famt")
+sel_audience  = render_filter_checklist("Audience & Industry ℹ️", all_audience_norm, audience_counts, "audience")
+sel_stage     = render_filter_checklist("Business Stage ℹ️", stage_options, stage_counts, "stage")
+sel_activity  = render_filter_checklist("Activity ℹ️", all_activity_norm, activity_counts, "activity")
+sel_regions   = render_filter_checklist("Region ℹ️", REGION_CHOICES, region_counts, "region")
 
 # Help / tooltip-style explainer for funding types
-with st.sidebar.expander("About funding types", expanded=False):
+with st.sidebar.expander("About funding types ℹ️", expanded=False):
     st.markdown("""
 **Grants** – non-repayable funding when you meet the program conditions.  
 **Loans** – funding you must repay, usually with interest.  
