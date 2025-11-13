@@ -180,8 +180,8 @@ div[data-testid="stVerticalBlock"]:has(.pf-card-marker):hover{
 
 .actions-dot{ color:#9CA3AF; }
 
-/* Make Call/Favourite button controls look like plain text links */
-.actions-row button{
+/* Make secondary buttons (used for Call / Favourite / chips) look like text links */
+button[data-testid="baseButton-secondary"]{
   background:none !important;
   border:none !important;
   padding:0;
@@ -193,18 +193,14 @@ div[data-testid="stVerticalBlock"]:has(.pf-card-marker):hover{
   box-shadow:none !important;
   border-radius:0 !important;
 }
-.actions-row button:hover{
+button[data-testid="baseButton-secondary"]:hover{
   opacity:.85;
   text-decoration:underline;
 }
-.actions-row button:focus{
+button[data-testid="baseButton-secondary"]:focus{
   outline:3px solid #feba35;
   outline-offset:2px;
 }
-
-/* Keep other primary buttons slightly rounded */
-button[kind="primary"]{ border-radius:8px; }
-</style>
 """, unsafe_allow_html=True)
 
 # ---------------------------- Optional: inline GoA CSS if present ----------------------------
