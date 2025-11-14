@@ -25,6 +25,20 @@ st.markdown(
   --fs-title:24px; --fs-body:15px; --fs-meta:13px;
 }
 
+/* Search input styling – make box more visible */
+div[data-testid="stTextInput"] > div > div {
+  border-radius: 999px;
+  border: 2px solid #C3D0E6;
+  background: #F3F4F6;
+  padding: 4px 10px;
+}
+
+/* Remove default input border so only the outer pill shows */
+div[data-testid="stTextInput"] input {
+  border: none;
+  background: transparent;
+}
+
 /* main spacing */
 [data-testid="stAppViewContainer"] .main .block-container{
   padding-top:0 !important;
@@ -210,6 +224,7 @@ button[aria-label="ℹ️"]{
 /* Keep primary buttons (filters, pagination) slightly rounded */
 button[kind="primary"]{ border-radius:8px; }
 </style>
+
 """,
     unsafe_allow_html=True,
 )
