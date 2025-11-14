@@ -1077,7 +1077,10 @@ Grants and rebates usually don’t need to be repaid, while loans, financing and
 
 # Funding filters first (question-style labels)
 sel_ftypes = render_funding_type_filter(
-    "What kind of funding are you looking for?", FUNDING_TYPE_CHOICES, ftype_counts, "ftype"
+    "What kind of funding are you looking for?",
+    FUNDING_TYPE_CHOICES,
+    ftype_counts,
+    "ftype",
 )
 sel_famts = render_filter_checklist(
     "How much funding are you looking for?", FUND_AMOUNT_CHOICES, famt_counts, "famt"
@@ -1089,7 +1092,10 @@ sel_stage = render_filter_checklist(
     "What stage is your business at?", stage_options, stage_counts, "stage"
 )
 sel_activity = render_filter_checklist(
-    "What type of business support do you need?", all_activity_norm, activity_counts, "activity"
+    "What type of business support do you need?",
+    all_activity_norm,
+    activity_counts,
+    "activity",
 )
 sel_regions = render_filter_checklist(
     "Where is your business located?", REGION_CHOICES, region_counts, "region"
