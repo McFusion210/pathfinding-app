@@ -273,6 +273,33 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+# ---------------------------- Promise + How it works ----------------------------
+st.markdown(
+    """
+### Find programs and supports for your Alberta business
+
+This tool helps entrepreneurs and small businesses quickly find **funding and business supports** that match their stage, location, and needs.
+"""
+)
+
+with st.container():
+    cols = st.columns(3)
+    with cols[0]:
+        st.markdown(
+            "**1. Choose filters**  \n"
+            "Pick your region, business stage, audience, funding type and the supports you’re looking for."
+        )
+    with cols[1]:
+        st.markdown(
+            "**2. Browse matching programs**  \n"
+            "Scroll through program cards that match your selections and compare options."
+        )
+    with cols[2]:
+        st.markdown(
+            "**3. Take action**  \n"
+            "Use the Website, Email, Call and Favourite options to connect with programs or save them for later."
+        )
+
 # ---------------------------- Data ----------------------------
 DATA_FILE = st.secrets.get("DATA_FILE", "Pathfinding_Master.xlsx")
 if not Path(DATA_FILE).exists():
@@ -460,6 +487,38 @@ def format_phone_multi(phone: str) -> str:
         parts.append(display or ch)
     return " | ".join(parts)
 
+
+def render_description(desc_full: str, program_key: str, max_chars: int = 260):
+    """Show description with Show more / Show less controls."""
+    desc_full = desc_full or ""
+    if not desc_full.strip():
+        st.markdown(
+            '<p><span class="placeholder">No description provided.</span></p>',
+            unsafe_allow_html=True,
+        )
+        return
+
+    if len(desc_full) <= max_chars:
+        st.markdown(f"<p>{desc_full}</p>", unsafe_allow_html=True)
+        return
+
+    state_key = f"show_full_desc_{program_key}"
+    show_full = st.session_state.get(state_key, False)
+
+    if show_full:
+        st.markdown(f"<p>{desc_full}</p>", unsafe_allow_html=True)
+        if st.button("Show less", key=f"{state_key}_less"):
+            st.session_state[state_key] = False
+            st.rerun()
+    else:
+        short = desc_full[:max_chars]
+        if " " in short:
+            short = short.rsplit(" ", 1)[0]
+        short = short + "…"
+        st.markdown(f"<p>{short}</p>", unsafe_allow_html=True)
+        if st.button("Show more", key=f"{state_key}_more"):
+            st.session_state[state_key] = True
+            st.rerun()
 
 # ---------------------------- Normalization ----------------------------
 ACTIVITY_NORMALIZATION_MAP = {
@@ -984,83 +1043,56 @@ def render_filter_checklist(label, options, counts, state_prefix):
     return picked
 
 
-if "funding_type_info_states" not in st.session_state:
-    st.session_state["funding_type_info_states"] = {}
-
-
 def render_funding_type_filter(label, options, counts, state_prefix="ftype"):
     picked = set()
-    info_states = st.session_state["funding_type_info_states"]
 
     with st.sidebar.expander(label, expanded=False):
-        # Move "About funding types" text into this expander
         st.markdown(
             """
-Use **Funding Type** to select the broad kind of financial support:
-
-- **Grants** and **rebates** generally do not need to be repaid.
-- **Loans**, **financing** and **credit** are repayable forms of capital.
-- **Tax credits** and **subsidies** reduce specific costs or taxes.
-- **Equity investment** provides capital in exchange for ownership.
+Use **funding type** to choose the broad kind of financial support you’re interested in.
+Grants and rebates usually don’t need to be repaid, while loans, financing and credit do.
 """
         )
 
         if st.button("Clear", key=f"clear_{state_prefix}"):
             for opt in options:
                 st.session_state[f"{state_prefix}_{opt}"] = False
-            for opt in list(info_states.keys()):
-                info_states[opt] = False
 
         for opt in options:
             c = counts.get(opt, 0)
             disabled = c == 0
-
-            cols = st.columns([4, 1])
-
-            # Checkbox
-            with cols[0]:
-                val = st.checkbox(
-                    f"{opt} ({c})",
-                    key=f"{state_prefix}_{opt}",
-                    disabled=disabled,
-                )
-                if val and not disabled:
-                    picked.add(opt)
-
-            # ℹ button + description
-            show_desc = info_states.get(opt, False)
-            with cols[1]:
-                if st.button("ℹ️", key=f"info_btn_{state_prefix}_{opt}"):
-                    show_desc = not show_desc
-            info_states[opt] = show_desc
-
-            if show_desc:
+            val = st.checkbox(
+                f"{opt} ({c})",
+                key=f"{state_prefix}_{opt}",
+                disabled=disabled,
+            )
+            if val and not disabled:
+                picked.add(opt)
                 desc = FUNDING_TYPE_DESCRIPTIONS.get(opt, "")
                 if desc:
                     st.caption(desc)
 
-    st.session_state["funding_type_info_states"] = info_states
     return picked
 
 
-# Funding filters first
+# Funding filters first (question-style labels)
 sel_ftypes = render_funding_type_filter(
-    "Funding Type", FUNDING_TYPE_CHOICES, ftype_counts, "ftype"
+    "What kind of funding are you looking for?", FUNDING_TYPE_CHOICES, ftype_counts, "ftype"
 )
 sel_famts = render_filter_checklist(
-    "Funding Amount", FUND_AMOUNT_CHOICES, famt_counts, "famt"
+    "How much funding are you looking for?", FUND_AMOUNT_CHOICES, famt_counts, "famt"
 )
 sel_audience = render_filter_checklist(
-    "Audience & Industry", all_audience_norm, audience_counts, "audience"
+    "Who is this support for?", all_audience_norm, audience_counts, "audience"
 )
 sel_stage = render_filter_checklist(
-    "Business Stage", stage_options, stage_counts, "stage"
+    "What stage is your business at?", stage_options, stage_counts, "stage"
 )
 sel_activity = render_filter_checklist(
-    "Business Supports", all_activity_norm, activity_counts, "activity"
+    "What type of business support do you need?", all_activity_norm, activity_counts, "activity"
 )
 sel_regions = render_filter_checklist(
-    "Region", REGION_CHOICES, region_counts, "region"
+    "Where is your business located?", REGION_CHOICES, region_counts, "region"
 )
 
 selected_regions, selected_ftypes, selected_famts = (
@@ -1088,7 +1120,6 @@ if st.sidebar.button("Clear all filters"):
             )
         ):
             st.session_state[k] = False
-    st.session_state["funding_type_info_states"] = {}
     st.rerun()
 
 # ---------------------------- Apply filters ----------------------------
@@ -1255,10 +1286,10 @@ else:
         ):
             raw_desc = ""
         desc_full = sanitize_text_keep_smart(raw_desc)
-        desc = (desc_full[:240] + "…") if len(desc_full) > 240 else desc_full
 
         elig = sanitize_text_keep_smart(str(row[COLS["ELIG"]] or "").strip())
         fund_bucket = str(row.get("__funding_bucket") or "")
+        fund_type_set = row.get("__fund_type_set", set())
         fresh_days = row.get("__fresh_days")
         fresh_date = str(row.get("__fresh_date") or "")
         fresh_label = freshness_label(fresh_days)
@@ -1280,7 +1311,7 @@ else:
         with st.container():
             st.markdown("<div class='pf-card-marker'></div>", unsafe_allow_html=True)
 
-            # Header
+            # Header: badge + freshness + title + org
             st.markdown(
                 f"""
                 <span class='badge {badge_cls}'>{badge_label}</span>
@@ -1292,24 +1323,31 @@ else:
                 unsafe_allow_html=True,
             )
 
-            # Description
-            st.markdown(
-                f"<p>{desc or '<span class=\"placeholder\">No description provided.</span>'}</p>",
-                unsafe_allow_html=True,
-            )
+            # Description with Show more / Show less
+            render_description(desc_full, key)
 
             # Funding + Eligibility strip
             fund_label = ""
             if fund_bucket and fund_bucket.strip().lower() != UNKNOWN:
                 fund_label = add_dollar_signs(fund_bucket)
 
+            fund_type_label = ""
+            if isinstance(fund_type_set, set) and fund_type_set:
+                fund_type_label = ", ".join(sorted(fund_type_set))
+
             fund_line = (
-                f'<span class="kv"><strong>Funding:</strong> {fund_label}</span>'
+                f'<span class="kv"><strong>Funding available:</strong> {fund_label}</span>'
                 if fund_label
                 else ""
             )
+            fund_type_line = (
+                f'<span class="kv"><strong>Funding type:</strong> {fund_type_label}</span>'
+                if fund_type_label
+                else ""
+            )
+
             elig_line = (
-                f'<span class="kv"><strong>Eligibility:</strong> {elig}</span>'
+                f'<span class="kv"><strong>Eligibility highlights:</strong> {elig}</span>'
                 if (
                     elig
                     and elig.strip().lower()
@@ -1318,8 +1356,9 @@ else:
                 else ""
             )
 
+            meta_html_parts = [x for x in [fund_line, fund_type_line, elig_line] if x]
             meta_html = (
-                " ".join(x for x in [fund_line, elig_line] if x)
+                " ".join(meta_html_parts)
                 or "<span class='placeholder'>No additional details</span>"
             )
 
@@ -1382,7 +1421,3 @@ else:
                 else:
                     st.session_state.favorites.add(key)
                 st.rerun()
-
-            if len(desc_full) > 240:
-                with st.expander("More details"):
-                    st.markdown(f"**Full description:** {desc_full}")
