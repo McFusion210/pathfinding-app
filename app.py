@@ -501,9 +501,13 @@ def normalize_phone(phone: str):
 
 def format_phone_multi(phone: str) -> str:
     """
-    Split multiple phone numbers and format them as 'xxx-xxx-xxxx | yyy-yyy-yyyy'.
-    Falls back to the original chunk if normalize_phone can't format it.
+    Split multiple phone numbers and format them as:
+      - xxx-xxx-xxxx | yyy-yyy-yyyy
+
+    If a phone number cannot be normalized, the function simply returns the
+    original text for that piece.
     """
+
     if not phone:
         return ""
     chunks = re.split(r"[,/;]|\bor\b", str(phone))
