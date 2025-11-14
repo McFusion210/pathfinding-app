@@ -292,7 +292,7 @@ st.markdown(
     """
 ### Find programs and supports for your Alberta business
 
-This tool helps entrepreneurs and small businesses quickly find **funding and business supports** that match their stage, location, and needs.
+This tool helps entrepreneurs and small businesses quickly find funding and business supports that match their stage, location, and needs.
 """
 )
 
@@ -316,7 +316,9 @@ with st.container():
             "**3. Take action**  \n"
             "Use the Website, Email, Call and Favourite options to connect with programs or save them for later."
         )
-
+        
+# Extra space before the search box
+st.markdown("<div style='height:40px;'></div>", unsafe_allow_html=True)
 # ---------------------------- Data ----------------------------
 DATA_FILE = st.secrets.get("DATA_FILE", "Pathfinding_Master.xlsx")
 if not Path(DATA_FILE).exists():
