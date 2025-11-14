@@ -316,9 +316,10 @@ with st.container():
             "**3. Take action**  \n"
             "Use the Website, Email, Call and Favourite options to connect with programs or save them for later."
         )
-        
-# Extra space before the search box
+
+# Extra vertical space between the 1–2–3 steps and the search box
 st.markdown("<div style='height:40px;'></div>", unsafe_allow_html=True)
+
 # ---------------------------- Data ----------------------------
 DATA_FILE = st.secrets.get("DATA_FILE", "Pathfinding_Master.xlsx")
 if not Path(DATA_FILE).exists():
@@ -1051,56 +1052,67 @@ audience_counts = count_by_option(df_except_audience["__audience_norm_set"])
 
 
 def render_filter_checklist(label, options, counts, state_prefix):
+    """
+    Non-collapsible filter section:
+    - H3-style heading in sidebar
+    - Clear button
+    - Checkboxes with counts
+    """
     picked = set()
-    with st.sidebar.expander(label, expanded=False):
-        if st.button("Clear", key=f"clear_{state_prefix}"):
-            for opt in options:
-                st.session_state[f"{state_prefix}_{opt}"] = False
+    st.sidebar.markdown(f"### {label}")
+
+    if st.sidebar.button("Clear", key=f"clear_{state_prefix}"):
         for opt in options:
-            c = counts.get(opt, 0)
-            disabled = c == 0
-            val = st.checkbox(
-                f"{opt} ({c})",
-                key=f"{state_prefix}_{opt}",
-                disabled=disabled,
-            )
-            if val and not disabled:
-                picked.add(opt)
+            st.session_state[f"{state_prefix}_{opt}"] = False
+
+    for opt in options:
+        c = counts.get(opt, 0)
+        disabled = c == 0
+        val = st.sidebar.checkbox(
+            f"{opt} ({c})",
+            key=f"{state_prefix}_{opt}",
+            disabled=disabled,
+        )
+        if val and not disabled:
+            picked.add(opt)
     return picked
 
 
 def render_funding_type_filter(label, options, counts, state_prefix="ftype"):
+    """
+    Non-collapsible funding type filter with explanatory text.
+    """
     picked = set()
 
-    with st.sidebar.expander(label, expanded=False):
-        st.markdown(
-            """
-Use **funding type** to choose the broad kind of financial support you're interested in.
+    st.sidebar.markdown(f"### {label}")
+    st.sidebar.markdown(
+        """
+Use funding type to choose the broad kind of financial support you're interested in.
 
 - Grants and rebates usually do not need to be repaid.  
 - Loans, financing and credit involve repayment.  
 - Tax credits reduce taxes payable when you meet conditions.  
 - Equity investments provide capital in exchange for ownership.
 """
-        )
+    )
 
-        if st.button("Clear", key=f"clear_{state_prefix}"):
-            for opt in options:
-                st.session_state[f"{state_prefix}_{opt}"] = False
-
+    if st.sidebar.button("Clear", key=f"clear_{state_prefix}"):
         for opt in options:
-            c = counts.get(opt, 0)
-            disabled = c == 0
-            val = st.checkbox(
-                f"{opt} ({c})",
-                key=f"{state_prefix}_{opt}",
-                disabled=disabled,
-            )
-            if val and not disabled:
-                picked.add(opt)
-                desc = FUNDING_TYPE_DESCRIPTIONS.get(opt, "")
-                if desc:
-                    st.caption(desc)
+            st.session_state[f"{state_prefix}_{opt}"] = False
+
+    for opt in options:
+        c = counts.get(opt, 0)
+        disabled = c == 0
+        val = st.sidebar.checkbox(
+            f"{opt} ({c})",
+            key=f"{state_prefix}_{opt}",
+            disabled=disabled,
+        )
+        if val and not disabled:
+            picked.add(opt)
+            desc = FUNDING_TYPE_DESCRIPTIONS.get(opt, "")
+            if desc:
+                st.sidebar.caption(desc)
 
     return picked
 
