@@ -290,8 +290,19 @@ st.markdown(
 
 # ---------------------------- Promise + How it works ----------------------------
 st.markdown(
-    """
+
+ """
 ### Find programs and supports for your Alberta business
+
+This tool helps entrepreneurs and small businesses quickly find **funding and business supports** that match their stage, location, and needs.
+"""
+)
+
+# Extra vertical space between the intro text and the 1–2–3 steps
+st.markdown("<div style='height:18px;'></div>", unsafe_allow_html=True)
+
+with st.container():
+    cols = st.columns(3)
 
 This tool helps entrepreneurs and small businesses quickly find **funding and business supports** that match their stage, location, and needs.
 """
