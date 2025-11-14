@@ -179,8 +179,8 @@ div[data-testid="stVerticalBlock"]:has(.pf-card-marker) a:hover{
   opacity:.85;
 }
 
-/* Make secondary buttons (Call / Favourite / chips) look like text links */
-button[data-testid="baseButton-secondary"]{
+/* Make Call / Favourite buttons inside cards look like text links */
+div[data-testid="stVerticalBlock"]:has(.pf-card-marker) .stButton > button{
   background:none !important;
   border:none !important;
   padding:0;
@@ -192,13 +192,19 @@ button[data-testid="baseButton-secondary"]{
   box-shadow:none !important;
   border-radius:0 !important;
 }
-button[data-testid="baseButton-secondary"]:hover{
+div[data-testid="stVerticalBlock"]:has(.pf-card-marker) .stButton > button:hover{
   opacity:.85;
   text-decoration:underline;
 }
-button[data-testid="baseButton-secondary"]:focus{
+div[data-testid="stVerticalBlock"]:has(.pf-card-marker) .stButton > button:focus{
   outline:3px solid #feba35;
   outline-offset:2px;
+}
+
+/* Make ℹ info buttons smaller, similar to ? help icons */
+button[aria-label="ℹ️"]{
+  font-size:12px !important;
+  padding:0 6px !important;
 }
 
 /* Keep primary buttons (filters, pagination) slightly rounded */
@@ -987,6 +993,18 @@ def render_funding_type_filter(label, options, counts, state_prefix="ftype"):
     info_states = st.session_state["funding_type_info_states"]
 
     with st.sidebar.expander(label, expanded=False):
+        # Move "About funding types" text into this expander
+        st.markdown(
+            """
+Use **Funding Type** to select the broad kind of financial support:
+
+- **Grants** and **rebates** generally do not need to be repaid.
+- **Loans**, **financing** and **credit** are repayable forms of capital.
+- **Tax credits** and **subsidies** reduce specific costs or taxes.
+- **Equity investment** provides capital in exchange for ownership.
+"""
+        )
+
         if st.button("Clear", key=f"clear_{state_prefix}"):
             for opt in options:
                 st.session_state[f"{state_prefix}_{opt}"] = False
@@ -1044,18 +1062,6 @@ sel_activity = render_filter_checklist(
 sel_regions = render_filter_checklist(
     "Region", REGION_CHOICES, region_counts, "region"
 )
-
-with st.sidebar.expander("About funding types", expanded=False):
-    st.markdown(
-        """
-Use **Funding Type** to select the broad kind of financial support:
-
-- **Grants** and **rebates** generally do not need to be repaid.
-- **Loans**, **financing** and **credit** are repayable forms of capital.
-- **Tax credits** and **subsidies** reduce specific costs or taxes.
-- **Equity investment** provides capital in exchange for ownership.
-"""
-    )
 
 selected_regions, selected_ftypes, selected_famts = (
     sel_regions,
@@ -1321,7 +1327,7 @@ else:
                 f"<div class='meta-info'>{meta_html}</div>", unsafe_allow_html=True
             )
 
-            # Actions row: Website · Email · Call · ☆/★ Favourite
+            # Actions row: Website · Email · Call · ☆/★ Favourite (all text-link style)
             st.markdown("<div class='actions-row'>", unsafe_allow_html=True)
 
             cols = st.columns(4)
