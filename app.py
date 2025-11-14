@@ -179,11 +179,11 @@ div[data-testid="stVerticalBlock"]:has(.pf-card-marker) a:hover{
   opacity:.85;
 }
 
-/* Make Call / Favourite buttons inside cards look like text links */
-div[data-testid="stVerticalBlock"]:has(.pf-card-marker) .stButton > button{
+/* Make secondary buttons (Call / Favourite / chips) look like text links */
+button[data-testid="baseButton-secondary"]{
   background:none !important;
   border:none !important;
-  padding:0 !important;
+  padding:0;
   margin:0;
   color:var(--link) !important;
   text-decoration:underline;
@@ -192,11 +192,11 @@ div[data-testid="stVerticalBlock"]:has(.pf-card-marker) .stButton > button{
   box-shadow:none !important;
   border-radius:0 !important;
 }
-div[data-testid="stVerticalBlock"]:has(.pf-card-marker) .stButton > button:hover{
+button[data-testid="baseButton-secondary"]:hover{
   opacity:.85;
   text-decoration:underline;
 }
-div[data-testid="stVerticalBlock"]:has(.pf-card-marker) .stButton > button:focus{
+button[data-testid="baseButton-secondary"]:focus{
   outline:3px solid #feba35;
   outline-offset:2px;
 }
@@ -1136,56 +1136,40 @@ filtered = sort_df(filtered)
 
 st.markdown(f"### {len(filtered)} Programs Found")
 
-# ---------------------------- Chips (filters only) ----------------------------
+# ---------------------------- Chips (read-only) ----------------------------
 def render_chips():
+    """Show active filters as read-only chips (no state mutation)."""
     chips = []
+
+    if q:
+        chips.append(f"Search: {q}")
+
     for f in sorted(selected_ftypes):
-        chips.append(("Funding Type", f, "ftype", f))
+        chips.append(f"Funding Type: {f}")
     for b in sorted(selected_famts):
-        chips.append(("Amount", b, "famt", b))
+        chips.append(f"Amount: {b}")
     for au in sorted(selected_audience):
-        chips.append(("Audience & Industry", au, "audience", au))
+        chips.append(f"Audience & Industry: {au}")
     for s in sorted(selected_stage):
-        chips.append(("Stage", s, "stage", s))
+        chips.append(f"Stage: {s}")
     for a in sorted(selected_activity):
-        chips.append(("Business Supports", a, "activity", a))
+        chips.append(f"Business Supports: {a}")
     for r in sorted(selected_regions):
-        chips.append(("Region", r, "region", r))
+        chips.append(f"Region: {r}")
 
     if not chips:
-        return []
+        return
 
     st.write("")
-    row_cols = 5
-    idx = 0
-    clear_actions = []  # (prefix, opt) pairs to clear after rendering
-
-    while idx < len(chips):
-        cols = st.columns(row_cols)
-        for c in range(row_cols):
-            if idx >= len(chips):
-                break
-            (k, v, prefix, opt) = chips[idx]
-            label = f"{k}: {v}  ✕"
-            if cols[c].button(label, key=f"chip_{prefix}_{opt}"):
-                clear_actions.append((prefix, opt))
-            idx += 1
-
-    return clear_actions
+    chip_markup = " ".join(
+        f"<span style='border-radius:999px;border:1px solid #D1D5DB;"
+        f"padding:4px 10px;margin-right:6px;font-size:13px;background:#F9FAFB;'>{c}</span>"
+        for c in chips
+    )
+    st.markdown(chip_markup, unsafe_allow_html=True)
 
 
-clear_actions = render_chips()
-
-# Apply chip clear actions AFTER rendering widgets
-if clear_actions:
-    for prefix, opt in clear_actions:
-        if (
-            prefix
-            in ("region", "ftype", "famt", "stage", "activity", "audience")
-            and opt is not None
-        ):
-            st.session_state[f"{prefix}_{opt}"] = False
-    st.rerun()
+render_chips()
 
 # ---------------------------- Export ----------------------------
 csv_bytes = filtered.to_csv(index=False).encode("utf-8")
