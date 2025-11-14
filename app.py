@@ -748,7 +748,7 @@ sort_mode = st.sidebar.selectbox(
     "Sort results by",
     ["Relevance", "Program Name (A–Z)", "Last Checked (newest)"],
     index=0,
-    help="Relevance uses fuzzy keyword matching across program name, description, eligibility and tags.",
+    help="Relevance uses fuzzy keyword matching across program name, description and tags.",
 )
 page_size = st.sidebar.selectbox(
     "Results per page",
@@ -1082,7 +1082,6 @@ if st.sidebar.button("Clear all filters"):
             )
         ):
             st.session_state[k] = False
-    st.session_state["q"] = ""
     st.session_state["funding_type_info_states"] = {}
     st.rerun()
 
@@ -1137,11 +1136,9 @@ filtered = sort_df(filtered)
 
 st.markdown(f"### {len(filtered)} Programs Found")
 
-# ---------------------------- Chips ----------------------------
+# ---------------------------- Chips (filters only) ----------------------------
 def render_chips():
     chips = []
-    if q:
-        chips.append(("Search", q, "search", None))
     for f in sorted(selected_ftypes):
         chips.append(("Funding Type", f, "ftype", f))
     for b in sorted(selected_famts):
@@ -1170,7 +1167,7 @@ def render_chips():
                 break
             (k, v, prefix, opt) = chips[idx]
             label = f"{k}: {v}  ✕"
-            if cols[c].button(label, key=f"chip_{prefix}_{opt or 'q'}"):
+            if cols[c].button(label, key=f"chip_{prefix}_{opt}"):
                 clear_actions.append((prefix, opt))
             idx += 1
 
@@ -1182,9 +1179,7 @@ clear_actions = render_chips()
 # Apply chip clear actions AFTER rendering widgets
 if clear_actions:
     for prefix, opt in clear_actions:
-        if prefix == "search":
-            st.session_state["q"] = ""
-        elif (
+        if (
             prefix
             in ("region", "ftype", "famt", "stage", "activity", "audience")
             and opt is not None
