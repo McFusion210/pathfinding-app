@@ -11,7 +11,7 @@ from rapidfuzz import fuzz
 
 # ---------------------------- Page ----------------------------
 st.set_page_config(
-    page_title="Alberta Pathfinding Tool – Small Business Supports",
+    page_title="Small Business Supports Finder",
     layout="wide",
 )
 
@@ -278,8 +278,8 @@ st.markdown(
 <div class="header goa-header goa-app-header">
   {embed_logo_html()}
   <div>
-    <h2>Alberta Pathfinding Tool</h2>
-    <p>Small Business Supports &amp; Funding Repository</p>
+    <h2>Small Business Supports Finder</h2>
+    <p>Helping Alberta entrepreneurs and small businesses find programs, funding, and services quickly.</p>
   </div>
 </div>
 <div class="header-spacer"></div>
@@ -1397,7 +1397,7 @@ else:
             )
 
             st.markdown(
-                f"<div class='meta-info'>{meta_html}</div>", unsafe_allow_html=True
+                f"<div class='meta-info'>{meta_html}</div>", unsafe_allow_html=True,
             )
 
             # Actions row: Website · Email · Call · ☆/★ Favourite (all text-link style)
