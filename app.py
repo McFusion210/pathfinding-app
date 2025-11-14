@@ -1082,8 +1082,17 @@ def render_funding_type_filter(label, options, counts, state_prefix="ftype"):
     with st.sidebar.expander(label, expanded=False):
         st.markdown(
             """
-Use **funding type** to choose the broad kind of financial support you’re interested in.
-Grants and rebates usually don’t need to be repaid, while loans, financing and credit do.
+st.markdown(
+    """
+Use **funding type** to choose the broad kind of financial support you're interested in.
+
+- **Grants** and **rebates** usually do not need to be repaid.  
+- **Loans**, **financing**, and **credit** involve repayment.  
+- **Tax credits** reduce taxes payable when you meet conditions.  
+- **Equity investments** provide capital in exchange for ownership.
+    """
+)
+
 """
         )
 
