@@ -224,7 +224,6 @@ button[aria-label="ℹ️"]{
 /* Keep primary buttons (filters, pagination) slightly rounded */
 button[kind="primary"]{ border-radius:8px; }
 </style>
-
 """,
     unsafe_allow_html=True,
 )
@@ -290,8 +289,7 @@ st.markdown(
 
 # ---------------------------- Promise + How it works ----------------------------
 st.markdown(
-
- """
+    """
 ### Find programs and supports for your Alberta business
 
 This tool helps entrepreneurs and small businesses quickly find **funding and business supports** that match their stage, location, and needs.
@@ -303,17 +301,10 @@ st.markdown("<div style='height:22px;'></div>", unsafe_allow_html=True)
 
 with st.container():
     cols = st.columns(3)
-
-This tool helps entrepreneurs and small businesses quickly find **funding and business supports** that match their stage, location, and needs.
-"""
-)
-
-with st.container():
-    cols = st.columns(3)
     with cols[0]:
         st.markdown(
             "**1. Choose filters**  \n"
-            "Pick your region, business stage, audience, funding type and the supports you’re looking for."
+            "Pick your region, business stage, audience, funding type and the supports you're looking for."
         )
     with cols[1]:
         st.markdown(
@@ -499,6 +490,7 @@ def normalize_phone(phone: str):
     tel = f"+{country}{digits}"
     return display, tel
 
+
 def format_phone_multi(phone: str) -> str:
     """
     Split multiple phone numbers and format them as:
@@ -507,7 +499,6 @@ def format_phone_multi(phone: str) -> str:
     If a phone number cannot be normalized, the function simply returns the
     original text for that piece.
     """
-
     if not phone:
         return ""
     chunks = re.split(r"[,/;]|\bor\b", str(phone))
@@ -1082,17 +1073,12 @@ def render_funding_type_filter(label, options, counts, state_prefix="ftype"):
     with st.sidebar.expander(label, expanded=False):
         st.markdown(
             """
-st.markdown(
-    """
 Use **funding type** to choose the broad kind of financial support you're interested in.
 
-- **Grants** and **rebates** usually do not need to be repaid.  
-- **Loans**, **financing**, and **credit** involve repayment.  
-- **Tax credits** reduce taxes payable when you meet conditions.  
-- **Equity investments** provide capital in exchange for ownership.
-    """
-)
-
+- Grants and rebates usually do not need to be repaid.  
+- Loans, financing and credit involve repayment.  
+- Tax credits reduce taxes payable when you meet conditions.  
+- Equity investments provide capital in exchange for ownership.
 """
         )
 
