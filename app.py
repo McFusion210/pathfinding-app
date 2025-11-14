@@ -299,7 +299,7 @@ This tool helps entrepreneurs and small businesses quickly find **funding and bu
 )
 
 # Extra vertical space between the intro text and the 1–2–3 steps
-st.markdown("<div style='height:18px;'></div>", unsafe_allow_html=True)
+st.markdown("<div style='height:22px;'></div>", unsafe_allow_html=True)
 
 with st.container():
     cols = st.columns(3)
