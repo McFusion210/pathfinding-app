@@ -479,7 +479,11 @@ def freshness_label(days):
 
 # Phone helpers
 def normalize_phone(phone: str):
-    """Return (display, tel) where display is XXX-XXX-XXXX and tel is +1XXXXXXXXXX."""
+    """
+    Return (display, tel) where:
+      - display looks like 403-555-1234
+      - tel looks like +14035551234
+    """
     if not phone:
         return "", ""
     digits = re.sub(r"\D", "", phone)
@@ -494,7 +498,6 @@ def normalize_phone(phone: str):
     display = f"{digits[0:3]}-{digits[3:6]}-{digits[6:10]}"
     tel = f"+{country}{digits}"
     return display, tel
-
 
 def format_phone_multi(phone: str) -> str:
     """
