@@ -498,9 +498,6 @@ def format_phone_multi(phone: str) -> str:
     """
     Split multiple phone numbers and format them as:
       - xxx-xxx-xxxx | yyy-yyy-yyyy
-
-    If a phone number cannot be normalized, the function simply returns the
-    original text for that piece.
     """
     if not phone:
         return ""
@@ -836,18 +833,6 @@ FUND_AMOUNT_CHOICES = [
 
 FUZZY_THR = 70
 
-sort_mode = st.sidebar.selectbox(
-    "Sort results by",
-    ["Relevance", "Program Name (A–Z)", "Last Checked (newest)"],
-    index=0,
-    help="Relevance uses fuzzy keyword matching across program name, description and tags.",
-)
-page_size = st.sidebar.selectbox(
-    "Results per page",
-    [10, 25, 50],
-    index=1,
-    help="Change how many programs appear on each page of results.",
-)
 
 REGION_MATCH_TABLE = {
     "Calgary": ["calgary", "southern alberta", "foothills"],
@@ -946,6 +931,7 @@ all_stage_norm = sorted(raw_stage_norm)
 stage_options = sorted(set(all_stage_norm) | set(STAGE_CANON_CHOICES))
 all_audience_norm = sorted({v for S in df["__audience_norm_set"] for v in S})
 
+# Read existing sidebar state (before recomputing counts)
 selected_regions = {
     opt for opt in REGION_CHOICES if st.session_state.get(f"region_{opt}")
 }
@@ -1080,21 +1066,28 @@ def render_filter_checklist(label, options, counts, state_prefix):
 
 def render_funding_type_filter(label, options, counts, state_prefix="ftype"):
     """
-    Non-collapsible funding type filter with explanatory text.
+    Funding type filter with a compact ℹ️ info toggle for descriptions.
     """
     picked = set()
 
-    st.sidebar.markdown(f"### {label}")
-    st.sidebar.markdown(
-        """
-Use funding type to choose the broad kind of financial support you're interested in.
+    header_cols = st.sidebar.columns([4, 1])
+    with header_cols[0]:
+        st.sidebar.markdown(f"### {label}")
+    with header_cols[1]:
+        info_clicked = st.sidebar.button("ℹ️", key=f"info_{state_prefix}", help="About funding types")
 
-- Grants and rebates usually do not need to be repaid.  
-- Loans, financing and credit involve repayment.  
-- Tax credits reduce taxes payable when you meet conditions.  
-- Equity investments provide capital in exchange for ownership.
-"""
-    )
+    show_help_key = f"show_help_{state_prefix}"
+    if info_clicked:
+        st.session_state[show_help_key] = not st.session_state.get(show_help_key, False)
+
+    if st.session_state.get(show_help_key, False):
+        st.sidebar.info(
+            "Use funding type to choose the broad kind of financial support you're interested in.\n\n"
+            "- Grants and rebates usually do not need to be repaid.\n"
+            "- Loans, financing and credit involve repayment.\n"
+            "- Tax credits reduce taxes payable when you meet conditions.\n"
+            "- Equity investments provide capital in exchange for ownership."
+        )
 
     if st.sidebar.button("Clear", key=f"clear_{state_prefix}"):
         for opt in options:
@@ -1117,28 +1110,62 @@ Use funding type to choose the broad kind of financial support you're interested
     return picked
 
 
-# Funding filters first (question-style labels)
-sel_ftypes = render_funding_type_filter(
-    "What kind of funding are you looking for?",
-    FUNDING_TYPE_CHOICES,
-    ftype_counts,
-    "ftype",
-)
-sel_famts = render_filter_checklist(
-    "How much funding are you looking for?", FUND_AMOUNT_CHOICES, famt_counts, "famt"
-)
-sel_audience = render_filter_checklist(
-    "Who is this support for?", all_audience_norm, audience_counts, "audience"
-)
-sel_stage = render_filter_checklist(
-    "What stage is your business at?", stage_options, stage_counts, "stage"
-)
+def clear_all_filters():
+    """Reset all sidebar filters."""
+    for k in list(st.session_state.keys()):
+        if any(
+            k.startswith(prefix)
+            for prefix in (
+                "region_",
+                "ftype_",
+                "famt_",
+                "stage_",
+                "activity_",
+                "audience_",
+            )
+        ):
+            st.session_state[k] = False
+    st.session_state["page_idx"] = 0
+
+
+# Top-level "Clear all" in sidebar
+if st.sidebar.button("Clear all filters", key="clear_all_top"):
+    clear_all_filters()
+    st.rerun()
+
+# ---------------------------- Render filters in recommended order ----------------------------
+# 1) Support type / activity
 sel_activity = render_filter_checklist(
     "What type of business support do you need?",
     all_activity_norm,
     activity_counts,
     "activity",
 )
+
+# 2) Funding type (with info icon)
+sel_ftypes = render_funding_type_filter(
+    "What kind of funding are you looking for?",
+    FUNDING_TYPE_CHOICES,
+    ftype_counts,
+    "ftype",
+)
+
+# 3) Funding amount
+sel_famts = render_filter_checklist(
+    "How much funding are you looking for?", FUND_AMOUNT_CHOICES, famt_counts, "famt"
+)
+
+# 4) Stage
+sel_stage = render_filter_checklist(
+    "What stage is your business at?", stage_options, stage_counts, "stage"
+)
+
+# 5) Audience
+sel_audience = render_filter_checklist(
+    "Who is this support for?", all_audience_norm, audience_counts, "audience"
+)
+
+# 6) Region
 sel_regions = render_filter_checklist(
     "Where is your business located?", REGION_CHOICES, region_counts, "region"
 )
@@ -1154,20 +1181,9 @@ selected_stage, selected_activity, selected_audience = (
     sel_audience,
 )
 
-if st.sidebar.button("Clear all filters"):
-    for k in list(st.session_state.keys()):
-        if any(
-            k.startswith(prefix)
-            for prefix in (
-                "region_",
-                "ftype_",
-                "famt",
-                "stage",
-                "activity_",
-                "audience",
-            )
-        ):
-            st.session_state[k] = False
+# Bottom "Clear all" in sidebar
+if st.sidebar.button("Clear all filters", key="clear_all_bottom"):
+    clear_all_filters()
     st.rerun()
 
 # ---------------------------- Apply filters ----------------------------
@@ -1196,7 +1212,24 @@ def apply_filters(df_in: pd.DataFrame) -> pd.DataFrame:
 
 filtered = apply_filters(df)
 
-# ---------------------------- Sort & pagination ----------------------------
+# ---------------------------- Sort controls & pagination size (main area) ----------------------------
+sort_col, page_col = st.columns([0.6, 0.4])
+with sort_col:
+    sort_mode = st.selectbox(
+        "Sort results by",
+        ["Relevance", "Program Name (A–Z)", "Last Checked (newest)"],
+        index=0,
+        help="Relevance uses fuzzy keyword matching across program name, description and tags.",
+    )
+with page_col:
+    page_size = st.selectbox(
+        "Results per page",
+        [10, 25, 50],
+        index=1,
+        help="Change how many programs appear on each page of results.",
+    )
+
+# ---------------------------- Sort & basic results heading ----------------------------
 def sort_df(dfin: pd.DataFrame) -> pd.DataFrame:
     if sort_mode == "Program Name (A–Z)":
         return dfin.sort_values(
