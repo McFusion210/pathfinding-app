@@ -221,8 +221,17 @@ button[aria-label="ℹ️"]{
   padding:0 6px !important;
 }
 
-/* Keep primary buttons (filters, pagination) slightly rounded */
+/* Keep primary buttons slightly rounded */
 button[kind="primary"]{ border-radius:8px; }
+
+/* Pill-style sidebar filter buttons */
+section[data-testid="stSidebar"] button[kind="secondary"],
+section[data-testid="stSidebar"] button[kind="primary"]{
+  border-radius:999px;
+  width:100%;
+  justify-content:flex-start;
+  margin-bottom:4px;
+}
 </style>
 """,
     unsafe_allow_html=True,
@@ -833,7 +842,6 @@ FUND_AMOUNT_CHOICES = [
 
 FUZZY_THR = 70
 
-
 REGION_MATCH_TABLE = {
     "Calgary": ["calgary", "southern alberta", "foothills"],
     "Edmonton": ["edmonton", "capital region", "central alberta"],
@@ -1037,12 +1045,13 @@ activity_counts = count_by_option(df_except_activity["__activity_norm_set"])
 audience_counts = count_by_option(df_except_audience["__audience_norm_set"])
 
 
-def render_filter_checklist(label, options, counts, state_prefix):
+# ------------ Pill-based filter helpers ------------
+def render_filter_pills(label, options, counts, state_prefix):
     """
-    Non-collapsible filter section:
+    Pill-style filter section:
     - H3-style heading in sidebar
     - Clear button
-    - Checkboxes with counts
+    - Each option is a toggleable button (primary when active)
     """
     picked = set()
     st.sidebar.markdown(f"### {label}")
@@ -1054,19 +1063,34 @@ def render_filter_checklist(label, options, counts, state_prefix):
     for opt in options:
         c = counts.get(opt, 0)
         disabled = c == 0
-        val = st.sidebar.checkbox(
-            f"{opt} ({c})",
-            key=f"{state_prefix}_{opt}",
+        state_key = f"{state_prefix}_{opt}"
+        active = st.session_state.get(state_key, False)
+        btn_type = "primary" if active and not disabled else "secondary"
+        label_text = f"{opt} ({c})"
+
+        clicked = st.sidebar.button(
+            label_text,
+            key=f"pill_{state_prefix}_{opt}",
             disabled=disabled,
+            type=btn_type,
         )
-        if val and not disabled:
+
+        if clicked and not disabled:
+            st.session_state[state_key] = not active
+            active = st.session_state[state_key]
+
+        if active and not disabled:
             picked.add(opt)
+
     return picked
 
 
-def render_funding_type_filter(label, options, counts, state_prefix="ftype"):
+def render_funding_type_pills(label, options, counts, state_prefix="ftype"):
     """
-    Funding type filter with a compact ℹ️ info toggle for descriptions.
+    Funding type filter with:
+    - Heading + ℹ️ info toggle
+    - Pill buttons for each funding type
+    - Short description shown for selected types
     """
     picked = set()
 
@@ -1096,12 +1120,23 @@ def render_funding_type_filter(label, options, counts, state_prefix="ftype"):
     for opt in options:
         c = counts.get(opt, 0)
         disabled = c == 0
-        val = st.sidebar.checkbox(
-            f"{opt} ({c})",
-            key=f"{state_prefix}_{opt}",
+        state_key = f"{state_prefix}_{opt}"
+        active = st.session_state.get(state_key, False)
+        btn_type = "primary" if active and not disabled else "secondary"
+        label_text = f"{opt} ({c})"
+
+        clicked = st.sidebar.button(
+            label_text,
+            key=f"pill_{state_prefix}_{opt}",
             disabled=disabled,
+            type=btn_type,
         )
-        if val and not disabled:
+
+        if clicked and not disabled:
+            st.session_state[state_key] = not active
+            active = st.session_state[state_key]
+
+        if active and not disabled:
             picked.add(opt)
             desc = FUNDING_TYPE_DESCRIPTIONS.get(opt, "")
             if desc:
@@ -1135,15 +1170,15 @@ if st.sidebar.button("Clear all filters", key="clear_all_top"):
 
 # ---------------------------- Render filters in recommended order ----------------------------
 # 1) Support type / activity
-sel_activity = render_filter_checklist(
+sel_activity = render_filter_pills(
     "What type of business support do you need?",
     all_activity_norm,
     activity_counts,
     "activity",
 )
 
-# 2) Funding type (with info icon)
-sel_ftypes = render_funding_type_filter(
+# 2) Funding type
+sel_ftypes = render_funding_type_pills(
     "What kind of funding are you looking for?",
     FUNDING_TYPE_CHOICES,
     ftype_counts,
@@ -1151,22 +1186,22 @@ sel_ftypes = render_funding_type_filter(
 )
 
 # 3) Funding amount
-sel_famts = render_filter_checklist(
+sel_famts = render_filter_pills(
     "How much funding are you looking for?", FUND_AMOUNT_CHOICES, famt_counts, "famt"
 )
 
 # 4) Stage
-sel_stage = render_filter_checklist(
+sel_stage = render_filter_pills(
     "What stage is your business at?", stage_options, stage_counts, "stage"
 )
 
 # 5) Audience
-sel_audience = render_filter_checklist(
+sel_audience = render_filter_pills(
     "Who is this support for?", all_audience_norm, audience_counts, "audience"
 )
 
 # 6) Region
-sel_regions = render_filter_checklist(
+sel_regions = render_filter_pills(
     "Where is your business located?", REGION_CHOICES, region_counts, "region"
 )
 
