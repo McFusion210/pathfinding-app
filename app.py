@@ -67,7 +67,8 @@ small{ font-size:var(--fs-meta); }
   position:sticky; top:0; z-index:9999;
   display:flex; align-items:center; gap:14px;
   background:var(--primary); color:#fff;
-  padding:14px 20px; border-radius:0; margin:0 -1.5rem 0 -1.5rem;
+  padding:10px 20px;
+  border-radius:0; margin:0 -1.5rem 0 -1.5rem;
   border-bottom:2px solid #00294F;
   box-shadow:0 2px 8px rgba(0,0,0,.08);
 }
@@ -75,17 +76,17 @@ small{ font-size:var(--fs-meta); }
   margin:0;
   color:#fff;
   font-weight:800;
-  font-size:28px;
+  font-size:26px;
   letter-spacing:.2px;
 }
 .header.goa-header p{
   margin:2px 0 0 0;
   color:#E6F2F8;
-  font-size:15px;
+  font-size:14px;
 }
 
 /* Spacer so content never sits beneath header */
-.header-spacer{ height:12px; }
+.header-spacer{ height:10px; }
 
 /* Card marker + container styling */
 .pf-card-marker{
@@ -221,16 +222,54 @@ button[aria-label="ℹ️"]{
   padding:0 6px !important;
 }
 
-/* Keep primary buttons slightly rounded */
-button[kind="primary"]{ border-radius:8px; }
+/* Global primary/secondary buttons (GoA-ish) */
+button[kind="primary"]{
+  background:var(--primary);
+  color:#fff;
+  border-radius:8px;
+  border:1px solid #00294F;
+}
+button[kind="primary"]:hover{
+  background:#00294F;
+}
+button[kind="secondary"]{
+  background:#FFFFFF;
+  color:var(--text);
+  border-radius:8px;
+  border:1px solid var(--border);
+}
 
 /* Pill-style sidebar filter buttons */
+section[data-testid="stSidebar"] h3{
+  margin-top:16px;
+  margin-bottom:4px;
+}
 section[data-testid="stSidebar"] button[kind="secondary"],
 section[data-testid="stSidebar"] button[kind="primary"]{
   border-radius:999px;
   width:100%;
   justify-content:flex-start;
   margin-bottom:4px;
+}
+
+/* Sticky sidebar content (desktop-ish) */
+section[data-testid="stSidebar"] > div{
+  position:sticky;
+  top:80px;
+  max-height:calc(100vh - 96px);
+  overflow-y:auto;
+}
+
+/* Download button styling */
+div[data-testid="stDownloadButton"] > button{
+  border-radius:8px;
+  border:1px solid var(--border);
+  background:#F3F4F6;
+}
+
+/* Pagination buttons spacing */
+div[data-testid="stHorizontalBlock"] button{
+  margin-top:4px;
 }
 </style>
 """,
@@ -266,13 +305,13 @@ def embed_logo_html():
         b64 = base64.b64encode(svg_path.read_bytes()).decode()
         return (
             f'<img src="data:image/svg+xml;base64,{b64}" '
-            f'alt="Government of Alberta" style="height:48px;">'
+            f'alt="Government of Alberta" style="height:44px;">'
         )
     if png_path.exists():
         b64 = base64.b64encode(png_path.read_bytes()).decode()
         return (
             f'<img src="data:image/png;base64,{b64}" '
-            f'alt="Government of Alberta" style="height:48px;">'
+            f'alt="Government of Alberta" style="height:44px;">'
         )
     return '<div style="font-weight:700;font-size:18px">Government of Alberta</div>'
 
@@ -908,7 +947,7 @@ def filtered_except(
         out = out[fuzzy_mask(out, q_text, threshold=FUZZY_THR)]
     if except_dim != "region" and selected_regions:
         col = out[COLS["REGION"]].astype(str)
-        out = out[col.apply(lambda v: any(region_match(v, r) for r in selected_regions))]
+        out = out[col.apply(lambda v, r: any(region_match(v, r) for r in selected_regions))]
     if except_dim != "famt" and selected_famts:
         out = out[out["__funding_bucket"].isin(selected_famts)]
     if except_dim != "ftype" and selected_ftypes:
@@ -1289,37 +1328,83 @@ filtered = sort_df(filtered)
 
 st.markdown(f"### {len(filtered)} Programs Found")
 
-# ---------------------------- Chips (read-only) ----------------------------
+# ---------------------------- Chips (with removable ✕) ----------------------------
 def render_chips():
-    """Show active filters as read-only chips (no state mutation)."""
-    chips = []
+    """Show active filters as chip rows with an ✕ button to clear each."""
+    any_chip = False
 
+    def chip_row(label: str, clear_key: str, clear_fn):
+        nonlocal any_chip
+        any_chip = True
+        col1, col2 = st.columns([0.88, 0.12])
+        with col1:
+            st.markdown(
+                f"<span style='display:inline-block;border-radius:999px;border:1px solid #D1D5DB;"
+                f"padding:4px 10px;margin-bottom:4px;font-size:13px;background:#F9FAFB;'>{label}</span>",
+                unsafe_allow_html=True,
+            )
+        with col2:
+            if st.button("✕", key=f"chip_x_{clear_key}", help="Remove this filter"):
+                clear_fn()
+                st.session_state["page_idx"] = 0
+                st.rerun()
+
+    # Search chip
     if q:
-        chips.append(f"Search: {q}")
+        def clear_search():
+            st.session_state["q"] = ""
+        chip_row(f"Search: {q}", "search", clear_search)
 
+    # Funding types
     for f in sorted(selected_ftypes):
-        chips.append(f"Funding Type: {f}")
+        def make_clear_ftype(opt=f):
+            def _clear():
+                st.session_state[f"ftype_{opt}"] = False
+            return _clear
+        chip_row(f"Funding Type: {f}", f"ftype_{f}", make_clear_ftype())
+
+    # Funding amounts
     for b in sorted(selected_famts):
-        chips.append(f"Amount: {b}")
+        def make_clear_famt(opt=b):
+            def _clear():
+                st.session_state[f"famt_{opt}"] = False
+            return _clear
+        chip_row(f"Amount: {b}", f"famt_{b}", make_clear_famt())
+
+    # Audience
     for au in sorted(selected_audience):
-        chips.append(f"Audience & Industry: {au}")
+        def make_clear_aud(opt=au):
+            def _clear():
+                st.session_state[f"audience_{opt}"] = False
+            return _clear
+        chip_row(f"Audience & Industry: {au}", f"aud_{au}", make_clear_aud())
+
+    # Stage
     for s in sorted(selected_stage):
-        chips.append(f"Stage: {s}")
+        def make_clear_stage(opt=s):
+            def _clear():
+                st.session_state[f"stage_{opt}"] = False
+            return _clear
+        chip_row(f"Stage: {s}", f"stage_{s}", make_clear_stage())
+
+    # Activity / Business supports
     for a in sorted(selected_activity):
-        chips.append(f"Business Supports: {a}")
+        def make_clear_act(opt=a):
+            def _clear():
+                st.session_state[f"activity_{opt}"] = False
+            return _clear
+        chip_row(f"Business Supports: {a}", f"activity_{a}", make_clear_act())
+
+    # Region
     for r in sorted(selected_regions):
-        chips.append(f"Region: {r}")
+        def make_clear_region(opt=r):
+            def _clear():
+                st.session_state[f"region_{opt}"] = False
+            return _clear
+        chip_row(f"Region: {r}", f"region_{r}", make_clear_region())
 
-    if not chips:
-        return
-
-    st.write("")
-    chip_markup = " ".join(
-        f"<span style='border-radius:999px;border:1px solid #D1D5DB;"
-        f"padding:4px 10px;margin-right:6px;font-size:13px;background:#F9FAFB;'>{c}</span>"
-        for c in chips
-    )
-    st.markdown(chip_markup, unsafe_allow_html=True)
+    if any_chip:
+        st.write("")
 
 
 render_chips()
@@ -1351,11 +1436,11 @@ if total > 0:
 
 prev_col, _, next_col = st.columns([0.1, 0.8, 0.1])
 with prev_col:
-    if st.button("◀ Prev", disabled=page == 0):
+    if st.button("◀ Prev", disabled=page == 0, type="primary"):
         st.session_state.page_idx = max(0, page - 1)
         st.rerun()
 with next_col:
-    if st.button("Next ▶", disabled=page >= max_page):
+    if st.button("Next ▶", disabled=page >= max_page, type="primary"):
         st.session_state.page_idx = min(max_page, page + 1)
         st.rerun()
 
@@ -1404,7 +1489,7 @@ else:
         desc_full = sanitize_text_keep_smart(raw_desc)
 
         elig = sanitize_text_keep_smart(str(row[COLS["ELIG"]] or "").strip())
-        fund_bucket = str(row.get("__funding_bucket") or "")
+        fund_bucket_val = str(row.get("__funding_bucket") or "")
         fund_type_set = row.get("__fund_type_set", set())
         fresh_days = row.get("__fresh_days")
         fresh_date = str(row.get("__fresh_date") or "")
@@ -1444,8 +1529,8 @@ else:
 
             # Funding + Eligibility strip
             fund_label = ""
-            if fund_bucket and fund_bucket.strip().lower() != UNKNOWN:
-                fund_label = add_dollar_signs(fund_bucket)
+            if fund_bucket_val and fund_bucket_val.strip().lower() != UNKNOWN:
+                fund_label = add_dollar_signs(fund_bucket_val)
 
             fund_type_label = ""
             if isinstance(fund_type_set, set) and fund_type_set:
