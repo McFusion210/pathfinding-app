@@ -268,8 +268,13 @@ div[data-testid="stHorizontalBlock"] button{
   margin-top:4px;
 }
 
-/* Active filter chips – Streamlit buttons styled as pills */
-button[title="chip-main"]{
+/* Chip / active filter pills */
+.chip-row-marker{
+  display:none;
+}
+
+/* All buttons inside the chip row container become pill chips */
+div[data-testid="stVerticalBlock"]:has(.chip-row-marker) button{
   border-radius:999px;
   border:1px solid #D1D5DB;
   background:#F9FAFB;
@@ -278,7 +283,7 @@ button[title="chip-main"]{
   margin:4px 6px 4px 0;
   cursor:pointer;
 }
-button[title="chip-main"]:hover{
+div[data-testid="stVerticalBlock"]:has(.chip-row-marker) button:hover{
   background:#E5E7EB;
 }
 </style>
@@ -537,7 +542,7 @@ def normalize_phone(phone: str):
     if not phone:
         return "", ""
     digits = re.sub(r"\D", "", phone)
-    if len(digits) == 11 and digits.startswith("1"):
+    if len(digits) == 11 and digits.startswith("1"):  # North America 1 + 10 digits
         country = "1"
         digits = digits[1:]
     elif len(digits) == 10:
@@ -1313,13 +1318,15 @@ def render_chips():
     """
     any_chip = False
 
+    # Marker so CSS can target this container's buttons
+    st.markdown("<div class='chip-row-marker'></div>", unsafe_allow_html=True)
+
     def chip(label: str, key_suffix: str, clear_fn):
         nonlocal any_chip
         any_chip = True
         clicked = st.button(
             label + " x",
             key=f"chip_{key_suffix}",
-            help="chip-main",
         )
         if clicked:
             clear_fn()
