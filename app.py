@@ -1341,24 +1341,26 @@ st.markdown(f"### {len(filtered)} Programs Found")
 # ---------------------------- Chips (Option A: pill with ✕ in label) ----------------------------
 def render_chips():
     """
+    def render_chips():
+    """
     Show active filters as pill-style buttons with a decorative ✕ inside the label.
     Option A: clicking anywhere on the pill clears ONLY that specific filter.
     """
     any_chip = False
 
     def chip(label: str, key_suffix: str, clear_fn):
-        """Render a single chip button; clicking it clears one filter."""
         nonlocal any_chip
         any_chip = True
         clicked = st.button(
             f"{label} ✕",
             key=f"chip_{key_suffix}",
-            help="chip-main",  # used by CSS selector for pill styling
+            help="chip-main",
         )
         if clicked:
             clear_fn()
             st.session_state["page_idx"] = 0
             st.rerun()
+    ...
 
     # Search chip
     if q:
