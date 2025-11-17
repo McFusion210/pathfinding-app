@@ -216,13 +216,13 @@ div[data-testid="stVerticalBlock"]:has(.pf-card-marker) .stButton > button:focus
   outline-offset:2px;
 }
 
-/* Make ℹ info buttons smaller, similar to ? help icons */
+/* Make info buttons smaller */
 button[aria-label="ℹ️"]{
   font-size:12px !important;
   padding:0 6px !important;
 }
 
-/* Global primary/secondary buttons (GoA-ish) */
+/* Global primary/secondary buttons */
 button[kind="primary"]{
   background:var(--primary);
   color:#fff;
@@ -354,7 +354,6 @@ This tool helps entrepreneurs and small businesses quickly find funding and busi
 """
 )
 
-# Extra vertical space between the intro text and the 1–2–3 steps
 st.markdown("<div style='height:22px;'></div>", unsafe_allow_html=True)
 
 with st.container():
@@ -375,7 +374,6 @@ with st.container():
             "Use the Website, Email, Call and Favourite options to connect with programs or save them for later."
         )
 
-# Extra vertical space between the 1–2–3 steps and the search box
 st.markdown("<div style='height:40px;'></div>", unsafe_allow_html=True)
 
 # ---------------------------- Data ----------------------------
@@ -545,7 +543,6 @@ def normalize_phone(phone: str):
     elif len(digits) == 10:
         country = "1"
     else:
-        # Fallback: show original, use raw digits for tel if present
         return phone, (digits or phone)
     display = f"{digits[0:3]}-{digits[3:6]}-{digits[6:10]}"
     tel = f"+{country}{digits}"
@@ -553,10 +550,6 @@ def normalize_phone(phone: str):
 
 
 def format_phone_multi(phone: str) -> str:
-    """
-    Split multiple phone numbers and format them as:
-      - xxx-xxx-xxxx | yyy-yyy-yyyy
-    """
     if not phone:
         return ""
     chunks = re.split(r"[,/;]|\bor\b", str(phone))
@@ -596,7 +589,7 @@ def render_description(desc_full: str, program_key: str, max_chars: int = 260):
         short = desc_full[:max_chars]
         if " " in short:
             short = short.rsplit(" ", 1)[0]
-        short = short + "…"
+        short = short + "..."
         st.markdown(f"<p>{short}</p>", unsafe_allow_html=True)
         if st.button("Show more", key=f"{state_key}_more"):
             st.session_state[state_key] = True
@@ -654,7 +647,6 @@ STAGE_NORMALIZATION_MAP = {
     "existing": "Mature / Established",
 }
 
-# Funding types
 FUNDING_TYPE_MAP = {
     "grant": "Grant",
     "non-repayable": "Grant",
@@ -695,7 +687,6 @@ FUNDING_TYPE_DESCRIPTIONS = {
 }
 
 AUDIENCE_NORMALIZATION_MAP = {
-    # Demographic / group audiences
     "women": "Women",
     "woman": "Women",
     "female": "Women",
@@ -718,7 +709,6 @@ AUDIENCE_NORMALIZATION_MAP = {
     "lgbt": "2SLGBTQ+",
     "2slgbt": "2SLGBTQ+",
     "queer": "2SLGBTQ+",
-    # Industry / sector audiences
     "tech": "Technology / Digital",
     "technology": "Technology / Digital",
     "digital": "Technology / Digital",
@@ -863,7 +853,7 @@ STAGE_CANON_CHOICES = [
     "Mature / Established",
 ]
 
-# ---------------------------- Sidebar filters ----------------------------
+# ---------------------------- Sidebar filters intro ----------------------------
 st.sidebar.header("Filters")
 st.sidebar.caption(
     "Use these filters to narrow down programs by funding, audience, stage, business supports and region."
@@ -957,7 +947,7 @@ def filtered_except(
         out = out[fuzzy_mask(out, q_text, threshold=FUZZY_THR)]
     if except_dim != "region" and selected_regions:
         col = out[COLS["REGION"]].astype(str)
-        out = out[col.apply(lambda v, r: any(region_match(v, r) for r in selected_regions))]
+        out = out[col.apply(lambda v: any(region_match(v, r) for r in selected_regions))]
     if except_dim != "famt" and selected_famts:
         out = out[out["__funding_bucket"].isin(selected_famts)]
     if except_dim != "ftype" and selected_ftypes:
@@ -976,10 +966,10 @@ q = st.text_input(
     "🔍 Search programs",
     "",
     key="q",
-    placeholder="Try 'grant', 'mentorship', or 'startup'…",
+    placeholder="Try 'grant', 'mentorship', or 'startup'...",
 )
 st.caption(
-    "Tip: Search matches similar terms (e.g., typing **mentor** finds **mentorship**)."
+    "Tip: Search matches similar terms (e.g., typing mentor finds mentorship)."
 )
 
 all_activity_norm = sorted({v for S in df["__activity_norm_set"] for v in S})
@@ -1096,12 +1086,6 @@ audience_counts = count_by_option(df_except_audience["__audience_norm_set"])
 
 # ------------ Pill-based filter helpers ------------
 def render_filter_pills(label, options, counts, state_prefix):
-    """
-    Pill-style filter section:
-    - H3-style heading in sidebar
-    - Clear button
-    - Each option is a toggleable button (primary when active)
-    """
     picked = set()
     st.sidebar.markdown(f"### {label}")
 
@@ -1135,19 +1119,15 @@ def render_filter_pills(label, options, counts, state_prefix):
 
 
 def render_funding_type_pills(label, options, counts, state_prefix="ftype"):
-    """
-    Funding type filter with:
-    - Heading + ℹ️ info toggle
-    - Pill buttons for each funding type
-    - Short description shown for selected types
-    """
     picked = set()
 
     header_cols = st.sidebar.columns([4, 1])
     with header_cols[0]:
         st.sidebar.markdown(f"### {label}")
     with header_cols[1]:
-        info_clicked = st.sidebar.button("ℹ️", key=f"info_{state_prefix}", help="About funding types")
+        info_clicked = st.sidebar.button(
+            "ℹ️", key=f"info_{state_prefix}", help="About funding types"
+        )
 
     show_help_key = f"show_help_{state_prefix}"
     if info_clicked:
@@ -1195,7 +1175,6 @@ def render_funding_type_pills(label, options, counts, state_prefix="ftype"):
 
 
 def clear_all_filters():
-    """Reset all sidebar filters."""
     for k in list(st.session_state.keys()):
         if any(
             k.startswith(prefix)
@@ -1212,13 +1191,11 @@ def clear_all_filters():
     st.session_state["page_idx"] = 0
 
 
-# Top-level "Clear all" in sidebar
 if st.sidebar.button("Clear all filters", key="clear_all_top"):
     clear_all_filters()
     st.rerun()
 
-# ---------------------------- Render filters in recommended order ----------------------------
-# 1) Support type / activity
+# Filters in recommended order
 sel_activity = render_filter_pills(
     "What type of business support do you need?",
     all_activity_norm,
@@ -1226,7 +1203,6 @@ sel_activity = render_filter_pills(
     "activity",
 )
 
-# 2) Funding type
 sel_ftypes = render_funding_type_pills(
     "What kind of funding are you looking for?",
     FUNDING_TYPE_CHOICES,
@@ -1234,22 +1210,18 @@ sel_ftypes = render_funding_type_pills(
     "ftype",
 )
 
-# 3) Funding amount
 sel_famts = render_filter_pills(
     "How much funding are you looking for?", FUND_AMOUNT_CHOICES, famt_counts, "famt"
 )
 
-# 4) Stage
 sel_stage = render_filter_pills(
     "What stage is your business at?", stage_options, stage_counts, "stage"
 )
 
-# 5) Audience
 sel_audience = render_filter_pills(
     "Who is this support for?", all_audience_norm, audience_counts, "audience"
 )
 
-# 6) Region
 sel_regions = render_filter_pills(
     "Where is your business located?", REGION_CHOICES, region_counts, "region"
 )
@@ -1265,7 +1237,6 @@ selected_stage, selected_activity, selected_audience = (
     sel_audience,
 )
 
-# Bottom "Clear all" in sidebar
 if st.sidebar.button("Clear all filters", key="clear_all_bottom"):
     clear_all_filters()
     st.rerun()
@@ -1284,19 +1255,15 @@ def apply_filters(df_in: pd.DataFrame) -> pd.DataFrame:
     if selected_stage:
         out = out[out["__stage_norm_set"].apply(lambda s: bool(s & selected_stage))]
     if selected_activity:
-        out = out[
-            out["__activity_norm_set"].apply(lambda s: bool(s & selected_activity))
-        ]
+        out = out[out["__activity_norm_set"].apply(lambda s: bool(s & selected_activity))]
     if selected_audience:
-        out = out[
-            out["__audience_norm_set"].apply(lambda s: bool(s & selected_audience))
-        ]
+        out = out[out["__audience_norm_set"].apply(lambda s: bool(s & selected_audience))]
     return out
 
 
 filtered = apply_filters(df)
 
-# ---------------------------- Sort controls & pagination size (main area) ----------------------------
+# ---------------------------- Sort controls & page size ----------------------------
 sort_col, page_col = st.columns([0.6, 0.4])
 with sort_col:
     sort_mode = st.selectbox(
@@ -1313,7 +1280,7 @@ with page_col:
         help="Change how many programs appear on each page of results.",
     )
 
-# ---------------------------- Sort & basic results heading ----------------------------
+
 def sort_df(dfin: pd.DataFrame) -> pd.DataFrame:
     if sort_mode == "Program Name (A–Z)":
         return dfin.sort_values(
@@ -1338,13 +1305,11 @@ filtered = sort_df(filtered)
 
 st.markdown(f"### {len(filtered)} Programs Found")
 
-# ---------------------------- Chips (Option A: pill with ✕ in label) ----------------------------
+# ---------------------------- Chips (pill buttons with x) ----------------------------
 def render_chips():
     """
-    def render_chips():
-    """
-    Show active filters as pill-style buttons with a decorative ✕ inside the label.
-    Option A: clicking anywhere on the pill clears ONLY that specific filter.
+    Show active filters as pill-style buttons.
+    Clicking a pill clears only that specific filter.
     """
     any_chip = False
 
@@ -1352,7 +1317,7 @@ def render_chips():
         nonlocal any_chip
         any_chip = True
         clicked = st.button(
-            f"{label} ✕",
+            label + " x",
             key=f"chip_{key_suffix}",
             help="chip-main",
         )
@@ -1360,63 +1325,52 @@ def render_chips():
             clear_fn()
             st.session_state["page_idx"] = 0
             st.rerun()
-    ...
 
-    # Search chip
     if q:
-        def clear_search():
-            st.session_state["q"] = ""
-        chip(f"Search: {q}", "search", clear_search)
+        chip(f"Search: {q}", "search", lambda: st.session_state.update({"q": ""}))
 
-    # Funding types
     for f in sorted(selected_ftypes):
-        def make_clear_ftype(opt=f):
-            def _clear():
-                st.session_state[f"ftype_{opt}"] = False
-            return _clear
-        chip(f"Funding Type: {f}", f"ftype_{f}", make_clear_ftype())
+        chip(
+            f"Funding Type: {f}",
+            f"ftype_{f}",
+            lambda f=f: st.session_state.update({f"ftype_{f}": False}),
+        )
 
-    # Funding amounts
     for b in sorted(selected_famts):
-        def make_clear_famt(opt=b):
-            def _clear():
-                st.session_state[f"famt_{opt}"] = False
-            return _clear
-        chip(f"Amount: {b}", f"famt_{b}", make_clear_famt())
+        chip(
+            f"Amount: {b}",
+            f"famt_{b}",
+            lambda b=b: st.session_state.update({f"famt_{b}": False}),
+        )
 
-    # Audience
     for au in sorted(selected_audience):
-        def make_clear_aud(opt=au):
-            def _clear():
-                st.session_state[f"audience_{opt}"] = False
-            return _clear
-        chip(f"Audience & Industry: {au}", f"aud_{au}", make_clear_aud())
+        chip(
+            f"Audience: {au}",
+            f"audience_{au}",
+            lambda au=au: st.session_state.update({f"audience_{au}": False}),
+        )
 
-    # Stage
     for s in sorted(selected_stage):
-        def make_clear_stage(opt=s):
-            def _clear():
-                st.session_state[f"stage_{opt}"] = False
-            return _clear
-        chip(f"Stage: {s}", f"stage_{s}", make_clear_stage())
+        chip(
+            f"Stage: {s}",
+            f"stage_{s}",
+            lambda s=s: st.session_state.update({f"stage_{s}": False}),
+        )
 
-    # Activity / Business supports
     for a in sorted(selected_activity):
-        def make_clear_act(opt=a):
-            def _clear():
-                st.session_state[f"activity_{opt}"] = False
-            return _clear
-        chip(f"Business Supports: {a}", f"activity_{a}", make_clear_act())
+        chip(
+            f"Business Supports: {a}",
+            f"activity_{a}",
+            lambda a=a: st.session_state.update({f"activity_{a}": False}),
+        )
 
-    # Region
     for r in sorted(selected_regions):
-        def make_clear_region(opt=r):
-            def _clear():
-                st.session_state[f"region_{opt}"] = False
-            return _clear
-        chip(f"Region: {r}", f"region_{r}", make_clear_region())
+        chip(
+            f"Region: {r}",
+            f"region_{r}",
+            lambda r=r: st.session_state.update({f"region_{r}": False}),
+        )
 
-    # Small spacer above the Download CSV button
     if any_chip:
         st.markdown("<div style='height:6px;'></div>", unsafe_allow_html=True)
 
@@ -1578,18 +1532,19 @@ else:
             )
 
             st.markdown(
-                f"<div class='meta-info'>{meta_html}</div>", unsafe_allow_html=True,
+                f"<div class='meta-info'>{meta_html}</div>",
+                unsafe_allow_html=True,
             )
 
             # Actions row: Website · Email · Call · ☆/★ Favourite (all text-link style)
             st.markdown("<div class='actions-row'>", unsafe_allow_html=True)
 
-            cols = st.columns(4)
+            cols_actions = st.columns(4)
             call_clicked = False
             fav_clicked = False
 
             # Website
-            with cols[0]:
+            with cols_actions[0]:
                 if website:
                     url = (
                         website
@@ -1599,17 +1554,17 @@ else:
                     st.markdown(f"[Website]({url})", unsafe_allow_html=True)
 
             # Email
-            with cols[1]:
+            with cols_actions[1]:
                 if email:
                     st.markdown(f"[Email](mailto:{email})", unsafe_allow_html=True)
 
             # Call (toggle numbers)
-            with cols[2]:
+            with cols_actions[2]:
                 if phone_display_multi:
                     call_clicked = st.button("Call", key=f"call_{key}")
 
             # Favourite
-            with cols[3]:
+            with cols_actions[3]:
                 fav_on = key in st.session_state.favorites
                 fav_label = "★ Favourite" if fav_on else "☆ Favourite"
                 fav_clicked = st.button(fav_label, key=f"fav_{key}")
