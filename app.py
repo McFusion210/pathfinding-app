@@ -239,15 +239,11 @@ button[kind="secondary"]{
   border:1px solid var(--border);
 }
 
-/* Pill-style sidebar filter buttons */
-section[data-testid="stSidebar"] h3{
-  margin-top:16px;
-  margin-bottom:4px;
-}
-section[data-testid="stSidebar"] button[kind="secondary"],
-section[data-testid="stSidebar"] button[kind="primary"]{
+/* Pill-style sidebar filter buttons (full-width) */
+section[data-testid="stSidebar"] div.stButton > button{
   border-radius:999px;
-  width:100%;
+  width:100% !important;
+  display:flex;
   justify-content:flex-start;
   margin-bottom:4px;
 }
@@ -270,6 +266,20 @@ div[data-testid="stDownloadButton"] > button{
 /* Pagination buttons spacing */
 div[data-testid="stHorizontalBlock"] button{
   margin-top:4px;
+}
+
+/* Active filter chips – Streamlit buttons styled as pills */
+button[title="chip-main"]{
+  border-radius:999px;
+  border:1px solid #D1D5DB;
+  background:#F9FAFB;
+  font-size:13px;
+  padding:4px 10px;
+  margin:4px 6px 4px 0;
+  cursor:pointer;
+}
+button[title="chip-main"]:hover{
+  background:#E5E7EB;
 }
 </style>
 """,
@@ -1328,32 +1338,33 @@ filtered = sort_df(filtered)
 
 st.markdown(f"### {len(filtered)} Programs Found")
 
-# ---------------------------- Chips (with removable ✕) ----------------------------
+# ---------------------------- Chips (Option A: pill with ✕ in label) ----------------------------
 def render_chips():
-    """Show active filters as chip rows with an ✕ button to clear each."""
+    """
+    Show active filters as pill-style buttons with a decorative ✕ inside the label.
+    Option A: clicking anywhere on the pill clears ONLY that specific filter.
+    """
     any_chip = False
 
-    def chip_row(label: str, clear_key: str, clear_fn):
+    def chip(label: str, key_suffix: str, clear_fn):
+        """Render a single chip button; clicking it clears one filter."""
         nonlocal any_chip
         any_chip = True
-        col1, col2 = st.columns([0.88, 0.12])
-        with col1:
-            st.markdown(
-                f"<span style='display:inline-block;border-radius:999px;border:1px solid #D1D5DB;"
-                f"padding:4px 10px;margin-bottom:4px;font-size:13px;background:#F9FAFB;'>{label}</span>",
-                unsafe_allow_html=True,
-            )
-        with col2:
-            if st.button("✕", key=f"chip_x_{clear_key}", help="Remove this filter"):
-                clear_fn()
-                st.session_state["page_idx"] = 0
-                st.rerun()
+        clicked = st.button(
+            f"{label} ✕",
+            key=f"chip_{key_suffix}",
+            help="chip-main",  # used by CSS selector for pill styling
+        )
+        if clicked:
+            clear_fn()
+            st.session_state["page_idx"] = 0
+            st.rerun()
 
     # Search chip
     if q:
         def clear_search():
             st.session_state["q"] = ""
-        chip_row(f"Search: {q}", "search", clear_search)
+        chip(f"Search: {q}", "search", clear_search)
 
     # Funding types
     for f in sorted(selected_ftypes):
@@ -1361,7 +1372,7 @@ def render_chips():
             def _clear():
                 st.session_state[f"ftype_{opt}"] = False
             return _clear
-        chip_row(f"Funding Type: {f}", f"ftype_{f}", make_clear_ftype())
+        chip(f"Funding Type: {f}", f"ftype_{f}", make_clear_ftype())
 
     # Funding amounts
     for b in sorted(selected_famts):
@@ -1369,7 +1380,7 @@ def render_chips():
             def _clear():
                 st.session_state[f"famt_{opt}"] = False
             return _clear
-        chip_row(f"Amount: {b}", f"famt_{b}", make_clear_famt())
+        chip(f"Amount: {b}", f"famt_{b}", make_clear_famt())
 
     # Audience
     for au in sorted(selected_audience):
@@ -1377,7 +1388,7 @@ def render_chips():
             def _clear():
                 st.session_state[f"audience_{opt}"] = False
             return _clear
-        chip_row(f"Audience & Industry: {au}", f"aud_{au}", make_clear_aud())
+        chip(f"Audience & Industry: {au}", f"aud_{au}", make_clear_aud())
 
     # Stage
     for s in sorted(selected_stage):
@@ -1385,7 +1396,7 @@ def render_chips():
             def _clear():
                 st.session_state[f"stage_{opt}"] = False
             return _clear
-        chip_row(f"Stage: {s}", f"stage_{s}", make_clear_stage())
+        chip(f"Stage: {s}", f"stage_{s}", make_clear_stage())
 
     # Activity / Business supports
     for a in sorted(selected_activity):
@@ -1393,7 +1404,7 @@ def render_chips():
             def _clear():
                 st.session_state[f"activity_{opt}"] = False
             return _clear
-        chip_row(f"Business Supports: {a}", f"activity_{a}", make_clear_act())
+        chip(f"Business Supports: {a}", f"activity_{a}", make_clear_act())
 
     # Region
     for r in sorted(selected_regions):
@@ -1401,10 +1412,11 @@ def render_chips():
             def _clear():
                 st.session_state[f"region_{opt}"] = False
             return _clear
-        chip_row(f"Region: {r}", f"region_{r}", make_clear_region())
+        chip(f"Region: {r}", f"region_{r}", make_clear_region())
 
+    # Small spacer above the Download CSV button
     if any_chip:
-        st.write("")
+        st.markdown("<div style='height:6px;'></div>", unsafe_allow_html=True)
 
 
 render_chips()
