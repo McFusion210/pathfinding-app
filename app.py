@@ -389,6 +389,9 @@ if not Path(DATA_FILE).exists():
     st.info("Upload **Pathfinding_Master.xlsx** to the project root and rerun.")
     st.stop()
 
+# Sentinel used when funding amount is missing or not stated
+UNKNOWN = "Unknown / Not stated"
+
 
 @st.cache_data(show_spinner=False)
 def load_df(path):
@@ -591,6 +594,19 @@ def render_description(desc_full: str, program_key: str, max_chars: int = 260):
             st.session_state[state_key] = True
             st.rerun()
 
+
+def freshness_label(days):
+    if days is None:
+        return "—"
+    if days <= 30:
+        return "Fresh (updated in last 30 days)"
+    if days <= 90:
+        return "Recent (updated in last 90 days)"
+    if days <= 180:
+        return "Stale (updated in last 6 months)"
+    return "Outdated (updated over 6 months ago)"
+
+
 # ---------------------------- Normalization ----------------------------
 ACTIVITY_NORMALIZATION_MAP = {
     "mentor": "Mentorship",
@@ -648,53 +664,22 @@ FUNDING_TYPE_MAP = {
     "non-repayable": "Grant",
     "nonrepayable": "Grant",
     "contribution": "Grant",
-    "rebate": "Rebate",
-    "tax credit": "Tax Credit",
-    "tax incentive": "Tax Credit",
-    "tax deduction": "Tax Credit",
-    "tax break": "Tax Credit",
-    "tax credit": "Tax Credit",
     "loan": "Loan",
-    "loans": "Loan",
     "microloan": "Loan",
     "micro loan": "Loan",
-    "micro-loan": "Loan",
-    "financing": "Financing",
-    "finance": "Financing",
-    "line of credit": "Credit",
-    "credit": "Credit",
-    "guarantee": "Financing",
-    "guarantees": "Financing",
+    "financ": "Financing",
+    "capital": "Financing",
+    "facility": "Financing",
+    "subsid": "Subsidy",
     "wage subsidy": "Subsidy",
-    "wage grant": "Subsidy",
-    "subsidy": "Subsidy",
-    "subsidies": "Subsidy",
-    "training subsidy": "Subsidy",
-    "training grant": "Subsidy",
-    "tuition grant": "Subsidy",
-    "tuition subsidy": "Subsidy",
-    "stipend": "Subsidy",
-    "stipends": "Subsidy",
+    "salary subsidy": "Subsidy",
+    "tax credit": "Tax Credit",
+    "taxcredit": "Tax Credit",
+    "rebate": "Rebate",
+    "cash rebate": "Rebate",
+    "credit": "Credit",
+    "line of credit": "Credit",
     "equity": "Equity Investment",
-    "equity investment": "Equity Investment",
-    "equity financing": "Equity Investment",
-    "equity funding": "Equity Investment",
-    "equity finance": "Equity Investment",
-    "equity-capital": "Equity Investment",
-    "equity capital": "Equity Investment",
-    "seed funding": "Equity Investment",
-    "seed investing": "Equity Investment",
-    "seed investment": "Equity Investment",
-    "equity-based": "Equity Investment",
-    "equity based": "Equity Investment",
-    "equity stake": "Equity Investment",
-    "invest": "Equity Investment",
-    "investment": "Equity Investment",
-    "investor": "Equity Investment",
-    "angel investment": "Equity Investment",
-    "angel investing": "Equity Investment",
-    "angel investors": "Equity Investment",
-    "angel investor": "Equity Investment",
     "venture capital": "Equity Investment",
     "vc": "Equity Investment",
     "angel": "Equity Investment",
@@ -863,7 +848,7 @@ def calc_funding_type(row):
     name_hits = detect_funding_types_from_tags(raw_name)
     desc_hits = detect_funding_types_from_tags(raw_desc)
     hits = tags_hits.union(name_hits).union(desc_hits)
-    return hits if hits else {UNKNOWN}
+    return hits
 
 
 def freshness(row):
@@ -907,8 +892,6 @@ FUNDING_BUCKET_OPTIONS = [
 FUNDING_TYPE_OPTIONS = sorted(
     {v for tags_set in df["__fund_type_set"] for v in tags_set if v}
 )
-
-UNKNOWN = "Unknown / Not stated"
 
 # Audience tips popover text
 AUDIENCE_TIPS = """
@@ -1275,7 +1258,7 @@ else:
 
             # Funding + Eligibility strip
             fund_label = ""
-            if fund_bucket_val and fund_bucket_val.strip().lower() != UNKNOWN:
+            if fund_bucket_val and fund_bucket_val.strip().lower() != UNKNOWN.lower():
                 fund_label = add_dollar_signs(fund_bucket_val)
 
             fund_type_label = ""
