@@ -306,7 +306,48 @@ cursor:pointer;
 }
 div[data-testid="stVerticalBlock"]:has(.chip-row-marker) button:hover{
 background:#E5E7EB;
+}
+/* === OVERRIDES: Active filter chips (below search bar) === */
 
+div[data-testid="stVerticalBlock"]:has(.chip-row-marker) button{
+  border-radius:999px;
+  border:1px solid var(--border);
+  background:#E6F2F8;
+  color:var(--primary);
+  font-size:13px;
+  padding:4px 12px;
+  margin:4px 6px 4px 0;
+  cursor:pointer;
+  text-decoration:none !important;
+}
+div[data-testid="stVerticalBlock"]:has(.chip-row-marker) button:hover{
+  background:#D3E5F5;
+}
+
+/* === OVERRIDES: Unified link styling for Website · Email · Call · Favourite === */
+
+div[data-testid="stVerticalBlock"]:has(.pf-card-marker) a,
+div[data-testid="stVerticalBlock"]:has(.pf-card-marker) .stButton > button{
+  color:var(--link) !important;
+  text-decoration:underline !important;
+  font-size:var(--fs-body);
+}
+
+div[data-testid="stVerticalBlock"]:has(.pf-card-marker) a:hover,
+div[data-testid="stVerticalBlock"]:has(.pf-card-marker) .stButton > button:hover{
+  opacity:.85;
+  text-decoration:underline;
+}
+
+div[data-testid="stVerticalBlock"]:has(.pf-card-marker) .stButton > button{
+  background:none !important;
+  border:none !important;
+  padding:0;
+  margin:0;
+  cursor:pointer;
+  box-shadow:none !important;
+  border-radius:0 !important;
+}
 
 </style>
 """,
