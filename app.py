@@ -1,9 +1,8 @@
-# app.py — Alberta Pathfinding Tool (Streamlit)
-# Government of Alberta – Small Business Supports & Funding Repository
+# app.py - Alberta Pathfinding Tool (Streamlit)
+# Government of Alberta - Small Business Supports and Funding Repository
 
 import re
 import base64
-import html
 from pathlib import Path
 
 import pandas as pd
@@ -26,7 +25,7 @@ st.markdown(
   --fs-title:24px; --fs-body:15px; --fs-meta:13px;
 }
 
-/* Search input styling – make box more visible */
+/* Search input styling - make box more visible */
 div[data-testid="stTextInput"] > div > div {
   border-radius: 999px;
   border: 2px solid #C3D0E6;
@@ -89,7 +88,7 @@ small{ font-size:var(--fs-meta); }
 /* Spacer so content never sits beneath header */
 .header-spacer{ height:10px; }
 
-/* Card marker + container styling */
+/* Card marker and container styling */
 .pf-card-marker{
   display:none;
 }
@@ -147,7 +146,7 @@ div[data-testid="stVerticalBlock"]:has(.pf-card-marker):hover{
   border:1px solid #F2BAC1;
 }
 
-/* Funding + Eligibility strip */
+/* Funding and eligibility strip */
 .meta-info{
   display:flex;
   gap:16px;
@@ -195,7 +194,7 @@ div[data-testid="stVerticalBlock"]:has(.pf-card-marker) a:hover{
   opacity:.85;
 }
 
-/* Make Call / Favourite buttons inside cards look like text links */
+/* Make Call and Favourite buttons inside cards look like text links */
 div[data-testid="stVerticalBlock"]:has(.pf-card-marker) .stButton > button{
   background:none !important;
   border:none !important;
@@ -223,7 +222,7 @@ button[aria-label="ℹ️"]{
   padding:0 6px !important;
 }
 
-/* Global primary/secondary buttons */
+/* Global primary and secondary buttons */
 button[kind="primary"]{
   background:var(--primary);
   color:#fff;
@@ -269,7 +268,7 @@ div[data-testid="stHorizontalBlock"] button{
   margin-top:4px;
 }
 
-/* Chip / active filter pills */
+/* Chip and active filter pills */
 .chip-row-marker{
   display:none;
 }
@@ -351,13 +350,12 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# ---------------------------- Promise + How it works ----------------------------
+# ---------------------------- Promise and How it works ----------------------------
 st.markdown(
     """
 ### Find programs and supports for your Alberta business
 
-This tool helps entrepreneurs and small businesses quickly find funding and business supports that match their stage, location,
-and needs.
+This tool helps entrepreneurs and small businesses quickly find funding and business supports that match their stage, location, and needs.
 """
 )
 
@@ -368,7 +366,7 @@ with st.container():
     with cols[0]:
         st.markdown(
             "**1. Choose filters**  \n"
-            "Pick your region, business stage, audience, funding type and the supports you're looking for."
+            "Pick your region, business stage, audience, funding type and the supports you are looking for."
         )
     with cols[1]:
         st.markdown(
@@ -386,11 +384,8 @@ st.markdown("<div style='height:40px;'></div>", unsafe_allow_html=True)
 # ---------------------------- Data ----------------------------
 DATA_FILE = st.secrets.get("DATA_FILE", "Pathfinding_Master.xlsx")
 if not Path(DATA_FILE).exists():
-    st.info("Upload **Pathfinding_Master.xlsx** to the project root and rerun.")
+    st.info("Upload Pathfinding_Master.xlsx to the project root and rerun.")
     st.stop()
-
-# Sentinel used when funding amount is missing or not stated
-UNKNOWN = "Unknown / Not stated"
 
 
 @st.cache_data(show_spinner=False)
@@ -497,6 +492,15 @@ def add_dollar_signs(text: str) -> str:
 
 
 def funding_bucket(amount):
+    """
+    Map raw funding amount strings into high level funding bands.
+
+    Micro: 0 to less than 10K
+    Small: 10K to less than 50K
+    Medium: 50K to less than 250K
+    Large: 250K to less than 1M
+    Major: 1M and above
+    """
     s = str(amount or "").replace(",", "")
     nums = re.findall(r"\d+\.?\d*", s)
     if not nums:
@@ -505,15 +509,16 @@ def funding_bucket(amount):
         val = float(nums[-1])
     except ValueError:
         return "Unknown / Not stated"
-    if val < 5000:
-        return "Under 5K"
-    if val < 25000:
-        return "5K–25K"
-    if val < 100000:
-        return "25K–100K"
-    if val < 500000:
-        return "100K–500K"
-    return "500K+"
+
+    if val < 10000:
+        return "Micro (<10K)"
+    if val < 50000:
+        return "Small (10K-50K)"
+    if val < 250000:
+        return "Medium (50K-250K)"
+    if val < 1000000:
+        return "Large (250K-1M)"
+    return "Major (1M+)"
 
 
 def days_since(date_str):
@@ -527,16 +532,27 @@ def days_since(date_str):
         return None, None
 
 
-def normalize_phone(phone: str) -> tuple[str, str]:
+def freshness_label(days):
+    if days is None:
+        return "—"
+    if days <= 30:
+        return f"{days}d ago"
+    if days <= 180:
+        return f"{days // 30}mo ago"
+    return f"{days // 365}y ago"
+
+
+# Phone helpers
+def normalize_phone(phone: str):
     """
-    Normalize a phone number to:
+    Return (display, tel) where:
       - display looks like 403-555-1234
       - tel looks like +14035551234
     """
     if not phone:
         return "", ""
     digits = re.sub(r"\D", "", phone)
-    if len(digits) == 11 and digits.startswith("1"):  # North America 1 + 10 digits
+    if len(digits) == 11 and digits.startswith("1"):
         country = "1"
         digits = digits[1:]
     elif len(digits) == 10:
@@ -563,7 +579,7 @@ def format_phone_multi(phone: str) -> str:
 
 
 def render_description(desc_full: str, program_key: str, max_chars: int = 260):
-    """Show description with Show more / Show less controls."""
+    """Show description with Show more and Show less controls."""
     desc_full = desc_full or ""
     if not desc_full.strip():
         st.markdown(
@@ -573,14 +589,14 @@ def render_description(desc_full: str, program_key: str, max_chars: int = 260):
         return
 
     if len(desc_full) <= max_chars:
-        st.markdown(f"<p>{html.escape(desc_full)}</p>", unsafe_allow_html=True)
+        st.markdown(f"<p>{desc_full}</p>", unsafe_allow_html=True)
         return
 
     state_key = f"show_full_desc_{program_key}"
     show_full = st.session_state.get(state_key, False)
 
     if show_full:
-        st.markdown(f"<p>{html.escape(desc_full)}</p>", unsafe_allow_html=True)
+        st.markdown(f"<p>{desc_full}</p>", unsafe_allow_html=True)
         if st.button("Show less", key=f"{state_key}_less"):
             st.session_state[state_key] = False
             st.rerun()
@@ -589,23 +605,10 @@ def render_description(desc_full: str, program_key: str, max_chars: int = 260):
         if " " in short:
             short = short.rsplit(" ", 1)[0]
         short = short + "..."
-        st.markdown(f"<p>{html.escape(short)}</p>", unsafe_allow_html=True)
+        st.markdown(f"<p>{short}</p>", unsafe_allow_html=True)
         if st.button("Show more", key=f"{state_key}_more"):
             st.session_state[state_key] = True
             st.rerun()
-
-
-def freshness_label(days):
-    if days is None:
-        return "—"
-    if days <= 30:
-        return "Fresh (updated in last 30 days)"
-    if days <= 90:
-        return "Recent (updated in last 90 days)"
-    if days <= 180:
-        return "Stale (updated in last 6 months)"
-    return "Outdated (updated over 6 months ago)"
-
 
 # ---------------------------- Normalization ----------------------------
 ACTIVITY_NORMALIZATION_MAP = {
@@ -620,9 +623,9 @@ ACTIVITY_NORMALIZATION_MAP = {
     "accelerator": "Accelerator / Incubator",
     "acceleration": "Accelerator / Incubator",
     "incubator": "Accelerator / Incubator",
-    "innovation": "Innovation / R&D",
-    "research": "Innovation / R&D",
-    "r&d": "Innovation / R&D",
+    "innovation": "Innovation / R and D",
+    "research": "Innovation / R and D",
+    "r&d": "Innovation / R and D",
     "export": "Export Readiness",
     "network": "Networking / Peer Support",
     "networking": "Networking / Peer Support",
@@ -727,16 +730,16 @@ AUDIENCE_NORMALIZATION_MAP = {
     "ict": "Technology / Digital",
     "software": "Technology / Digital",
     "saas": "Technology / Digital",
-    "tourism": "Tourism & Hospitality",
-    "hospitality": "Tourism & Hospitality",
-    "hotel": "Tourism & Hospitality",
-    "visitor": "Tourism & Hospitality",
-    "agri": "Agriculture & Agri-food",
-    "agriculture": "Agriculture & Agri-food",
-    "farm": "Agriculture & Agri-food",
-    "farmer": "Agriculture & Agri-food",
-    "agri-food": "Agriculture & Agri-food",
-    "agri food": "Agriculture & Agri-food",
+    "tourism": "Tourism and Hospitality",
+    "hospitality": "Tourism and Hospitality",
+    "hotel": "Tourism and Hospitality",
+    "visitor": "Tourism and Hospitality",
+    "agri": "Agriculture and Agri-food",
+    "agriculture": "Agriculture and Agri-food",
+    "farm": "Agriculture and Agri-food",
+    "farmer": "Agriculture and Agri-food",
+    "agri-food": "Agriculture and Agri-food",
+    "agri food": "Agriculture and Agri-food",
     "energy": "Energy",
     "oil": "Energy",
     "gas": "Energy",
@@ -819,355 +822,612 @@ def row_audience_norm_set(raw_tag_field: str) -> set[str]:
         if normalize_audience_tag(rt)
     }
 
+# ---------------------------- Derived columns ----------------------------
+df["__funding_bucket"] = df[COLS["FUNDING"]].apply(funding_bucket)
 
-def calc_stages(row):
-    raw = str(row.get(COLS["TAGS"], "") or "")
-    return row_stage_norm_set(raw)
+days_list, date_list = [], []
+for val in df[COLS["LAST_CHECKED"]].tolist():
+    d, ds = days_since(val)
+    days_list.append(d)
+    date_list.append(ds or "")
+df["__fresh_days"] = days_list
+df["__fresh_date"] = date_list
 
+if df[COLS["KEY"]].isna().any():
+    df[COLS["KEY"]] = (
+        df[COLS["PROGRAM_NAME"]]
+        .fillna("")
+        .astype(str)
+        .str.lower()
+        .str.replace(r"[^a-z0-9]+", "", regex=True)
+        + "|"
+        + df[COLS["ORG_NAME"]]
+        .fillna("")
+        .astype(str)
+        .str.lower()
+        .str.replace(r"[^a-z0-9]+", "", regex=True)
+    )
 
-def calc_audiences(row):
-    raw = str(row.get(COLS["TAGS"], "") or "")
-    return row_audience_norm_set(raw)
-
-
-def calc_activities(row):
-    raw = str(row.get(COLS["TAGS"], "") or "")
-    return row_activity_norm_set(raw)
-
-
-def calc_funding_bucket(row):
-    raw = str(row.get(COLS["FUNDING"], "") or "")
-    return funding_bucket(raw)
-
-
-def calc_funding_type(row):
-    raw_tags = str(row.get(COLS["TAGS"], "") or "")
-    raw_name = str(row.get(COLS["PROGRAM_NAME"], "") or "")
-    raw_desc = str(row.get(COLS["DESC"], "") or "")
-    tags_hits = detect_funding_types_from_tags(raw_tags)
-    name_hits = detect_funding_types_from_tags(raw_name)
-    desc_hits = detect_funding_types_from_tags(raw_desc)
-    hits = tags_hits.union(name_hits).union(desc_hits)
-    return hits
-
-
-def freshness(row):
-    days, formatted_date = days_since(row.get(COLS["LAST_CHECKED"], ""))
-    return days, formatted_date
-
-
-df["__activities"] = df.apply(calc_activities, axis=1)
-df["__stages"] = df.apply(calc_stages, axis=1)
-df["__audiences"] = df.apply(calc_audiences, axis=1)
-df["__funding_bucket"] = df.apply(calc_funding_bucket, axis=1)
-df["__fund_type_set"] = df.apply(calc_funding_type, axis=1)
-df["__fresh_days"], df["__fresh_date"] = zip(*df.apply(freshness, axis=1))
-
-# ---------------------------- Search / Filters ----------------------------
-REGION_OPTIONS = sorted(
-    {r for r in df[COLS["REGION"]].dropna().astype(str).unique() if r.strip()}
+df["__activity_norm_set"] = (
+    df[COLS["TAGS"]].fillna("").astype(str).apply(row_activity_norm_set)
 )
-ACTIVITY_OPTIONS = sorted(
-    {
-        v
-        for tags_set in df["__activities"]
-        for v in tags_set
-        if v and v != UNKNOWN
-    }
+df["__stage_norm_set"] = (
+    df[COLS["TAGS"]].fillna("").astype(str).apply(row_stage_norm_set)
 )
-STAGE_OPTIONS = sorted(
-    {v for tags_set in df["__stages"] for v in tags_set if v and v != UNKNOWN}
+df["__fund_type_set"] = (
+    df[COLS["TAGS"]].fillna("").astype(str).apply(detect_funding_types_from_tags)
 )
-AUDIENCE_OPTIONS = sorted(
-    {v for tags_set in df["__audiences"] for v in tags_set if v and v != UNKNOWN}
+df["__audience_norm_set"] = (
+    df[COLS["TAGS"]].fillna("").astype(str).apply(row_audience_norm_set)
 )
-FUNDING_BUCKET_OPTIONS = [
-    "Under 5K",
-    "5K–25K",
-    "25K–100K",
-    "100K–500K",
-    "500K+",
+
+STAGE_CANON_CHOICES = [
+    "Startup / Early Stage",
+    "Growth / Scale",
+    "Mature / Established",
+]
+
+# ---------------------------- Sidebar filters intro ----------------------------
+st.sidebar.header("Filters")
+st.sidebar.caption(
+    "Use these filters to narrow down programs by funding, audience, stage, business supports and region."
+)
+
+REGION_CHOICES = ["Calgary", "Edmonton", "Rural Alberta", "Canada"]
+FUNDING_TYPE_CHOICES = [
+    "Grant",
+    "Loan",
+    "Financing",
+    "Subsidy",
+    "Tax Credit",
+    "Rebate",
+    "Credit",
+    "Equity Investment",
+]
+FUND_AMOUNT_CHOICES = [
+    "Micro (<10K)",
+    "Small (10K-50K)",
+    "Medium (50K-250K)",
+    "Large (250K-1M)",
+    "Major (1M+)",
     "Unknown / Not stated",
 ]
-FUNDING_TYPE_OPTIONS = sorted(
-    {v for tags_set in df["__fund_type_set"] for v in tags_set if v}
-)
 
-# Audience tips popover text
-AUDIENCE_TIPS = """
-- Choose one or more audiences to see programs that explicitly serve those groups.
-- If no audience is selected, results will include general programs open to all.
-"""
+FUZZY_THR = 70
 
-# ---------------------------- Helpers ----------------------------
-def ensure_session_state():
-    defaults = {
-        "query": "",
-        "region": [],
-        "activity": [],
-        "stage": [],
-        "audience": [],
-        "funding_bucket": [],
-        "funding_type": [],
-        "favorites": set(),
-        "page_idx": 0,
-        "show_filters": False,
-        "include_unknown_funding": False,
-    }
-    for k, v in defaults.items():
-        if k not in st.session_state:
-            st.session_state[k] = v
+REGION_MATCH_TABLE = {
+    "Calgary": ["calgary", "southern alberta", "foothills"],
+    "Edmonton": ["edmonton", "capital region", "central alberta"],
+    "Rural Alberta": [
+        "rural",
+        "north",
+        "northern alberta",
+        "east central",
+        "south",
+        "southern alberta",
+        "central alberta",
+        "mountain view",
+        "parkland",
+    ],
+    "Canada": ["canada", "national", "federal", "pan-canadian", "international"],
+}
 
 
-def reset_pagination():
-    st.session_state.page_idx = 0
+def region_match(region_value: str, selected: str) -> bool:
+    if not selected or selected == "All Regions":
+        return True
+    if not isinstance(region_value, str):
+        return False
+    v = region_value.lower()
+    return any(word in v for word in REGION_MATCH_TABLE.get(selected, []))
 
 
-def toggle_filters():
-    st.session_state.show_filters = not st.session_state.show_filters
+def count_by_option(series_of_sets: pd.Series):
+    freq: dict[str, int] = {}
+    for S in series_of_sets:
+        for v in S:
+            freq[v] = freq.get(v, 0) + 1
+    return freq
 
 
-ensure_session_state()
+def fuzzy_mask(df_in, q_text, threshold=70):
+    if not q_text:
+        return pd.Series([True] * len(df_in), index=df_in.index)
+    cols = [
+        COLS["PROGRAM_NAME"],
+        COLS["ORG_NAME"],
+        COLS["DESC"],
+        COLS["ELIG"],
+        COLS["TAGS"],
+    ]
+    blobs = df_in[cols].fillna("").astype(str).agg(" ".join, axis=1).str.lower()
+    return blobs.apply(lambda blob: fuzz.partial_ratio(q_text.lower(), blob) >= threshold)
 
-# ---------------------------- Sidebar (filters) ----------------------------
-with st.sidebar:
-    st.subheader("Filters")
-    st.button(
-        "Toggle filters",
-        key="toggle_filters",
-        on_click=toggle_filters,
-        help="Show or hide filter controls",
-    )
 
-    if st.session_state.show_filters:
-        st.markdown("### Region")
-        region = st.multiselect(
-            "Select region(s)",
-            options=REGION_OPTIONS,
-            default=st.session_state.region,
-            help="Choose one or more geographic regions",
-            on_change=reset_pagination,
-        )
-        st.session_state.region = region
-
-        st.markdown("### Funding type")
-        funding_type = st.multiselect(
-            "Select funding type(s)",
-            options=FUNDING_TYPE_OPTIONS,
-            default=st.session_state.funding_type,
-            on_change=reset_pagination,
-        )
-        st.session_state.funding_type = funding_type
-
-        st.markdown("### Funding amount")
-        funding_bucket = st.multiselect(
-            "Select funding amount",
-            options=FUNDING_BUCKET_OPTIONS,
-            default=st.session_state.funding_bucket,
-            on_change=reset_pagination,
-        )
-        st.session_state.funding_bucket = funding_bucket
-
-        st.markdown("### Business stage")
-        stage = st.multiselect(
-            "Select stage(s)",
-            options=STAGE_OPTIONS,
-            default=st.session_state.stage,
-            on_change=reset_pagination,
-        )
-        st.session_state.stage = stage
-
-        st.markdown("### Activity / support type")
-        activity = st.multiselect(
-            "Select activities",
-            options=ACTIVITY_OPTIONS,
-            default=st.session_state.activity,
-            on_change=reset_pagination,
-        )
-        st.session_state.activity = activity
-
-        st.markdown("### Target audiences")
-        with st.expander("Who is this program for? (Optional)"):
-            st.info(AUDIENCE_TIPS.strip())
-            audience = st.multiselect(
-                "Select audiences",
-                options=AUDIENCE_OPTIONS,
-                default=st.session_state.audience,
-                on_change=reset_pagination,
-            )
-            st.session_state.audience = audience
-
-        st.checkbox(
-            "Include programs where funding amount is unknown / not stated",
-            value=st.session_state.include_unknown_funding,
-            key="include_unknown_funding",
-            on_change=reset_pagination,
-        )
-
-        st.markdown("### Favorites")
-        st.caption("View programs you've starred (☆/★).")
-        if st.button("Show only favorites", key="filter_favorites"):
-            st.session_state.favorites_only = True
-            st.rerun()
+def filtered_except(
+    df_in,
+    q_text,
+    selected_regions,
+    selected_ftypes,
+    selected_famts,
+    selected_stage,
+    selected_activity,
+    selected_audience,
+    *,
+    except_dim,
+):
+    out = df_in.copy()
+    if q_text:
+        out = out[fuzzy_mask(out, q_text, threshold=FUZZY_THR)]
+    if except_dim != "region" and selected_regions:
+        col = out[COLS["REGION"]].astype(str)
+        out = out[col.apply(lambda v: any(region_match(v, r) for r in selected_regions))]
+    if except_dim != "famt" and selected_famts:
+        out = out[out["__funding_bucket"].isin(selected_famts)]
+    if except_dim != "ftype" and selected_ftypes:
+        out = out[out["__fund_type_set"].apply(lambda s: bool(s & selected_ftypes))]
+    if except_dim != "stage" and selected_stage:
+        out = out[out["__stage_norm_set"].apply(lambda s: bool(s & selected_stage))]
+    if except_dim != "activity" and selected_activity:
+        out = out[out["__activity_norm_set"].apply(lambda s: bool(s & selected_activity))]
+    if except_dim != "audience" and selected_audience:
+        out = out[out["__audience_norm_set"].apply(lambda s: bool(s & selected_audience))]
+    return out
 
 # ---------------------------- Search input ----------------------------
-search_query = st.text_input(
+q = st.text_input(
     "Search programs",
-    value=st.session_state.query,
-    placeholder="Search by keyword, topic, organization, or program name",
+    "",
+    key="q",
+    placeholder="Try grant, mentorship, or startup...",
 )
-if search_query != st.session_state.query:
-    st.session_state.query = search_query
-    reset_pagination()
+st.caption(
+    "Tip: Search matches similar terms. For example, typing mentor will also find mentorship."
+)
 
-# ---------------------------- Filter logic ----------------------------
-def text_match_score(row, query):
-    if not query:
-        return 0
-    haystack = " ".join(
-        [
-            str(row.get(COLS["PROGRAM_NAME"], "")),
-            str(row.get(COLS["DESC"], "")),
-            str(row.get(COLS["ORG_NAME"], "")),
-            str(row.get(COLS["TAGS"], "")),
-            str(row.get(COLS["ELIG"], "")),
-        ]
+# ---------------------------- Build dynamic filter options ----------------------------
+all_activity_norm = sorted({v for S in df["__activity_norm_set"] for v in S})
+raw_stage_norm = {v for S in df["__stage_norm_set"] for v in S}
+all_stage_norm = sorted(raw_stage_norm)
+stage_options = sorted(set(all_stage_norm) | set(STAGE_CANON_CHOICES))
+all_audience_norm = sorted({v for S in df["__audience_norm_set"] for v in S})
+
+# Read existing sidebar state (before recomputing counts)
+selected_regions = {
+    opt for opt in REGION_CHOICES if st.session_state.get(f"region_{opt}")
+}
+selected_ftypes = {
+    opt for opt in FUNDING_TYPE_CHOICES if st.session_state.get(f"ftype_{opt}")
+}
+selected_famts = {
+    opt for opt in FUND_AMOUNT_CHOICES if st.session_state.get(f"famt_{opt}")
+}
+selected_stage = {
+    opt for opt in stage_options if st.session_state.get(f"stage_{opt}")
+}
+selected_activity = {
+    opt for opt in all_activity_norm if st.session_state.get(f"activity_{opt}")
+}
+selected_audience = {
+    opt for opt in all_audience_norm if st.session_state.get(f"audience_{opt}")
+}
+
+# Data subsets used for counts (what remains if you change just one dimension)
+df_except_region = filtered_except(
+    df,
+    q,
+    selected_regions,
+    selected_ftypes,
+    selected_famts,
+    selected_stage,
+    selected_activity,
+    selected_audience,
+    except_dim="region",
+)
+df_except_ftype = filtered_except(
+    df,
+    q,
+    selected_regions,
+    selected_ftypes,
+    selected_famts,
+    selected_stage,
+    selected_activity,
+    selected_audience,
+    except_dim="ftype",
+)
+df_except_famt = filtered_except(
+    df,
+    q,
+    selected_regions,
+    selected_ftypes,
+    selected_famts,
+    selected_stage,
+    selected_activity,
+    selected_audience,
+    except_dim="famt",
+)
+df_except_stage = filtered_except(
+    df,
+    q,
+    selected_regions,
+    selected_ftypes,
+    selected_famts,
+    selected_stage,
+    selected_activity,
+    selected_audience,
+    except_dim="stage",
+)
+df_except_activity = filtered_except(
+    df,
+    q,
+    selected_regions,
+    selected_ftypes,
+    selected_famts,
+    selected_stage,
+    selected_activity,
+    selected_audience,
+    except_dim="activity",
+)
+df_except_audience = filtered_except(
+    df,
+    q,
+    selected_regions,
+    selected_ftypes,
+    selected_famts,
+    selected_stage,
+    selected_activity,
+    selected_audience,
+    except_dim="audience",
+)
+
+region_counts = {
+    r: int(
+        df_except_region[COLS["REGION"]]
+        .astype(str)
+        .apply(lambda v, r=r: region_match(v, r))
+        .sum()
     )
-    return fuzz.token_set_ratio(query.lower(), haystack.lower())
+    for r in REGION_CHOICES
+}
+ftype_counts = {
+    f: int(df_except_ftype["__fund_type_set"].apply(lambda s, f=f: f in s).sum())
+    for f in FUNDING_TYPE_CHOICES
+}
+famt_counts = df_except_famt["__funding_bucket"].value_counts().to_dict()
+stage_counts = count_by_option(df_except_stage["__stage_norm_set"])
+activity_counts = count_by_option(df_except_activity["__activity_norm_set"])
+audience_counts = count_by_option(df_except_audience["__audience_norm_set"])
+
+# ------------ Pill-based filter helpers ------------
+def render_filter_pills(label, options, counts, state_prefix):
+    picked = set()
+    st.sidebar.markdown(f"### {label}")
+
+    if st.sidebar.button("Clear", key=f"clear_{state_prefix}"):
+        for opt in options:
+            st.session_state[f"{state_prefix}_{opt}"] = False
+
+    for opt in options:
+        c = counts.get(opt, 0)
+        disabled = c == 0
+        state_key = f"{state_prefix}_{opt}"
+        active = st.session_state.get(state_key, False)
+        btn_type = "primary" if active and not disabled else "secondary"
+        label_text = f"{opt} ({c})"
+
+        clicked = st.sidebar.button(
+            label_text,
+            key=f"pill_{state_prefix}_{opt}",
+            disabled=disabled,
+            type=btn_type,
+        )
+
+        if clicked and not disabled:
+            st.session_state[state_key] = not active
+            active = st.session_state[state_key]
+
+        if active and not disabled:
+            picked.add(opt)
+
+    return picked
 
 
-def filter_df(df_in, query):
-    df_work = df_in.copy()
+def render_funding_type_pills(label, options, counts, state_prefix="ftype"):
+    picked = set()
 
-    def matches_filters(row):
-        # Region
-        if st.session_state.region:
-            if row.get(COLS["REGION"], "") not in st.session_state.region:
-                return False
+    header_cols = st.sidebar.columns([4, 1])
+    with header_cols[0]:
+        st.sidebar.markdown(f"### {label}")
+    with header_cols[1]:
+        info_clicked = st.sidebar.button(
+            "ℹ️", key=f"info_{state_prefix}", help="About funding types"
+        )
 
-        # Funding type
-        if st.session_state.funding_type:
-            if not (
-                row.get("__fund_type_set", set()) & set(st.session_state.funding_type)
-            ):
-                return False
+    show_help_key = f"show_help_{state_prefix}"
+    if info_clicked:
+        st.session_state[show_help_key] = not st.session_state.get(show_help_key, False)
 
-        # Funding bucket
-        if st.session_state.funding_bucket:
-            bucket = row.get("__funding_bucket", UNKNOWN)
-            if bucket not in st.session_state.funding_bucket:
-                return False
+    if st.session_state.get(show_help_key, False):
+        st.sidebar.info(
+            "Use funding type to choose the broad kind of financial support you are interested in.\n\n"
+            "- Grants and rebates usually do not need to be repaid.\n"
+            "- Loans, financing and credit involve repayment.\n"
+            "- Tax credits reduce taxes payable when you meet conditions.\n"
+            "- Equity investments provide capital in exchange for ownership."
+        )
 
-        # Activity
-        if st.session_state.activity:
-            if not (row.get("__activities", set()) & set(st.session_state.activity)):
-                return False
+    if st.sidebar.button("Clear", key=f"clear_{state_prefix}"):
+        for opt in options:
+            st.session_state[f"{state_prefix}_{opt}"] = False
 
-        # Stage
-        if st.session_state.stage:
-            if not (row.get("__stages", set()) & set(st.session_state.stage)):
-                return False
+    for opt in options:
+        c = counts.get(opt, 0)
+        disabled = c == 0
+        state_key = f"{state_prefix}_{opt}"
+        active = st.session_state.get(state_key, False)
+        btn_type = "primary" if active and not disabled else "secondary"
+        label_text = f"{opt} ({c})"
 
-        # Audience
-        if st.session_state.audience:
-            if not (row.get("__audiences", set()) & set(st.session_state.audience)):
-                return False
+        clicked = st.sidebar.button(
+            label_text,
+            key=f"pill_{state_prefix}_{opt}",
+            disabled=disabled,
+            type=btn_type,
+        )
 
-        # Include unknown funding?
-        if not st.session_state.include_unknown_funding:
-            bucket = row.get("__funding_bucket", UNKNOWN)
-            if bucket == UNKNOWN:
-                return False
+        if clicked and not disabled:
+            st.session_state[state_key] = not active
+            active = st.session_state[state_key]
 
-        return True
+        if active and not disabled:
+            picked.add(opt)
+            desc = FUNDING_TYPE_DESCRIPTIONS.get(opt, "")
+            if desc:
+                st.sidebar.caption(desc)
 
-    df_work["__matches_filters"] = df_work.apply(matches_filters, axis=1)
-
-    # Favorites filter
-    if st.session_state.get("favorites_only"):
-        df_work = df_work[df_work.get(COLS["KEY"]).isin(st.session_state.favorites)]
-
-    if query:
-        df_work["__text_score"] = df_work.apply(text_match_score, axis=1, query=query)
-        df_work = df_work[df_work["__text_score"] > 0]
-        df_work = df_work.sort_values(
-            "__text_score", ascending=False
-        )  # Highest score first
-    else:
-        df_work["__text_score"] = 0
-
-    df_filtered = df_work[df_work["__matches_filters"]]
-
-    return df_filtered.drop(columns=["__matches_filters"])
+    return picked
 
 
-filtered_df = filter_df(df, search_query)
+def clear_all_filters():
+    for k in list(st.session_state.keys()):
+        if any(
+            k.startswith(prefix)
+            for prefix in (
+                "region_",
+                "ftype_",
+                "famt_",
+                "stage_",
+                "activity_",
+                "audience_",
+            )
+        ):
+            st.session_state[k] = False
+    st.session_state["page_idx"] = 0
 
-# ---------------------------- Results / Pagination ----------------------------
-PAGE_SIZE = 12
-total = len(filtered_df)
-max_page = (total - 1) // PAGE_SIZE if total else 0
-page = st.session_state.page_idx
-page = max(0, min(page, max_page))
-st.session_state.page_idx = page
 
-start = page * PAGE_SIZE
-end = start + PAGE_SIZE
+if st.sidebar.button("Clear all filters", key="clear_all_top"):
+    clear_all_filters()
+    st.rerun()
 
-with st.container():
+# Filters in recommended order with question headings
+sel_activity = render_filter_pills(
+    "What type of business support do you need?",
+    all_activity_norm,
+    activity_counts,
+    "activity",
+)
+
+sel_ftypes = render_funding_type_pills(
+    "What kind of funding are you looking for?",
+    FUNDING_TYPE_CHOICES,
+    ftype_counts,
+    "ftype",
+)
+
+sel_famts = render_filter_pills(
+    "How much funding are you looking for?", FUND_AMOUNT_CHOICES, famt_counts, "famt"
+)
+
+sel_stage = render_filter_pills(
+    "What stage is your business at?", stage_options, stage_counts, "stage"
+)
+
+sel_audience = render_filter_pills(
+    "Who is this support for?", all_audience_norm, audience_counts, "audience"
+)
+
+sel_regions = render_filter_pills(
+    "Where is your business located?", REGION_CHOICES, region_counts, "region"
+)
+
+selected_regions, selected_ftypes, selected_famts = (
+    sel_regions,
+    sel_ftypes,
+    sel_famts,
+)
+selected_stage, selected_activity, selected_audience = (
+    sel_stage,
+    sel_activity,
+    sel_audience,
+)
+
+if st.sidebar.button("Clear all filters", key="clear_all_bottom"):
+    clear_all_filters()
+    st.rerun()
+
+# ---------------------------- Active filter chips (for main column) ----------------------------
+def render_chips():
+    """
+    Show active filters as pill-style buttons just under the search bar.
+    Clicking a pill clears only that specific filter.
+    """
+    any_chip = False
+
+    # Marker so CSS can target this container's buttons
     st.markdown("<div class='chip-row-marker'></div>", unsafe_allow_html=True)
-    st.markdown("### Active filters")
-    active_filters = []
 
-    if search_query:
-        active_filters.append(f"Search: \"{search_query}\"")
-    if st.session_state.region:
-        active_filters.extend(st.session_state.region)
-    if st.session_state.funding_type:
-        active_filters.extend(st.session_state.funding_type)
-    if st.session_state.funding_bucket:
-        active_filters.extend(st.session_state.funding_bucket)
-    if st.session_state.activity:
-        active_filters.extend(st.session_state.activity)
-    if st.session_state.stage:
-        active_filters.extend(st.session_state.stage)
-    if st.session_state.audience:
-        active_filters.extend(st.session_state.audience)
-    if st.session_state.include_unknown_funding:
-        active_filters.append("Include unknown funding")
-
-    if st.session_state.get("favorites_only"):
-        active_filters.append("Favorites only")
-
-    cols_chips = st.columns(3)
-    with cols_chips[0]:
-        st.button("Clear all filters", on_click=reset_pagination, key="clear_filters")
-    with cols_chips[1]:
-        st.button("Show favorites", key="show_favorites", on_click=lambda: st.session_state.setdefault("favorites_only", True) or st.rerun())
-    with cols_chips[2]:
-        st.button("Show all programs", key="show_all", on_click=lambda: st.session_state.pop("favorites_only", None) or st.rerun())
-
-    if active_filters:
-        st.write(", ".join(active_filters))
-    else:
-        st.write("No active filters.")
-
-    st.markdown("<div style='height:6px;'></div>", unsafe_allow_html=True)
-
-    st.write(f"Showing {start + 1}–{min(end, total)} of {total} programs")
-
-    # Pagination controls
-    col_prev, col_page, col_next = st.columns([1, 2, 1])
-    with col_prev:
-        if st.button("Previous", disabled=page <= 0):
-            st.session_state.page_idx = max(0, page - 1)
+    def chip(label: str, key_suffix: str, clear_fn):
+        nonlocal any_chip
+        any_chip = True
+        clicked = st.button(
+            label + " x",
+            key=f"chip_{key_suffix}",
+        )
+        if clicked:
+            clear_fn()
+            st.session_state["page_idx"] = 0
             st.rerun()
-    with col_page:
-        st.write(f"Page {page + 1} of {max_page + 1}")
-    with col_next:
-        if st.button("Next", disabled=page >= max_page):
-            st.session_state.page_idx = min(max_page, page + 1)
-            st.rerun()
+
+    if q:
+        chip(f"Search: {q}", "search", lambda: st.session_state.update({"q": ""}))
+
+    for f in sorted(selected_ftypes):
+        chip(
+            f"Funding Type: {f}",
+            f"ftype_{f}",
+            lambda f=f: st.session_state.update({f"ftype_{f}": False}),
+        )
+
+    for b in sorted(selected_famts):
+        chip(
+            f"Amount: {b}",
+            f"famt_{b}",
+            lambda b=b: st.session_state.update({f"famt_{b}": False}),
+        )
+
+    for au in sorted(selected_audience):
+        chip(
+            f"Audience: {au}",
+            f"audience_{au}",
+            lambda au=au: st.session_state.update({f"audience_{au}": False}),
+        )
+
+    for s in sorted(selected_stage):
+        chip(
+            f"Stage: {s}",
+            f"stage_{s}",
+            lambda s=s: st.session_state.update({f"stage_{s}": False}),
+        )
+
+    for a in sorted(selected_activity):
+        chip(
+            f"Business Supports: {a}",
+            f"activity_{a}",
+            lambda a=a: st.session_state.update({f"activity_{a}": False}),
+        )
+
+    for r in sorted(selected_regions):
+        chip(
+            f"Region: {r}",
+            f"region_{r}",
+            lambda r=r: st.session_state.update({f"region_{r}": False}),
+        )
+
+    if any_chip:
+        st.markdown("<div style='height:6px;'></div>", unsafe_allow_html=True)
+
+
+# ---------------------------- Apply filters ----------------------------
+def apply_filters(df_in: pd.DataFrame) -> pd.DataFrame:
+    out = df_in.copy()
+    out = out[fuzzy_mask(out, q, threshold=FUZZY_THR)]
+    if selected_regions and COLS["REGION"] in out.columns:
+        col = out[COLS["REGION"]].astype(str)
+        out = out[col.apply(lambda v: any(region_match(v, r) for r in selected_regions))]
+    if selected_famts:
+        out = out[out["__funding_bucket"].isin(selected_famts)]
+    if selected_ftypes:
+        out = out[out["__fund_type_set"].apply(lambda s: bool(s & selected_ftypes))]
+    if selected_stage:
+        out = out[out["__stage_norm_set"].apply(lambda s: bool(s & selected_stage))]
+    if selected_activity:
+        out = out[out["__activity_norm_set"].apply(lambda s: bool(s & selected_activity))]
+    if selected_audience:
+        out = out[out["__audience_norm_set"].apply(lambda s: bool(s & selected_audience))]
+    return out
+
+
+filtered = apply_filters(df)
+
+# Active filters row directly under search
+render_chips()
+
+# ---------------------------- Sort controls and page size ----------------------------
+sort_col, page_col = st.columns([0.6, 0.4])
+with sort_col:
+    sort_mode = st.selectbox(
+        "Sort results by",
+        ["Relevance", "Program Name (A to Z)", "Last Checked (newest)"],
+        index=0,
+        help="Relevance uses fuzzy keyword matching across program name, description and tags.",
+    )
+with page_col:
+    page_size = st.selectbox(
+        "Results per page",
+        [10, 25, 50],
+        index=1,
+        help="Change how many programs appear on each page of results.",
+    )
+
+
+def sort_df(dfin: pd.DataFrame) -> pd.DataFrame:
+    if sort_mode == "Program Name (A to Z)":
+        return dfin.sort_values(
+            COLS["PROGRAM_NAME"],
+            na_position="last",
+            kind="mergesort",
+        )
+    if sort_mode == "Last Checked (newest)":
+        tmp = dfin.copy()
+        tmp["__dt"] = pd.to_datetime(tmp[COLS["LAST_CHECKED"]], errors="coerce")
+        tmp = tmp.sort_values(
+            "__dt",
+            ascending=False,
+            na_position="last",
+            kind="mergesort",
+        )
+        return tmp.drop(columns="__dt")
+    return dfin
+
+
+filtered = sort_df(filtered)
+
+st.markdown(f"### {len(filtered)} Programs Found")
+
+# ---------------------------- Export ----------------------------
+csv_bytes = filtered.to_csv(index=False).encode("utf-8")
+st.download_button(
+    "Download results (CSV)",
+    csv_bytes,
+    file_name="pathfinding_results.csv",
+    mime="text/csv",
+)
+
+# ---------------------------- Results (role=main) ----------------------------
+if "favorites" not in st.session_state:
+    st.session_state.favorites = set()
+
+UNKNOWN = "unknown / not stated"
+
+total = len(filtered)
+if "page_idx" not in st.session_state:
+    st.session_state.page_idx = 0
+max_page = max(0, (total - 1) // page_size)
+page = min(st.session_state.page_idx, max_page)
+start = page * page_size
+end = min(start + page_size, total)
+if total > 0:
+    st.caption(f"Showing {start + 1}-{end} of {total}")
+
+prev_col, _, next_col = st.columns([0.1, 0.8, 0.1])
+with prev_col:
+    if st.button("Prev", disabled=page == 0, type="primary"):
+        st.session_state.page_idx = max(0, page - 1)
+        st.rerun()
+with next_col:
+    if st.button("Next", disabled=page >= max_page, type="primary"):
+        st.session_state.page_idx = min(max_page, page + 1)
+        st.rerun()
 
 st.markdown(
     '<div id="results-main" role="main" class="goa-searchresults"></div>',
@@ -1179,7 +1439,7 @@ if total == 0:
         "No programs match your current filters. Try clearing filters or broadening your search."
     )
 else:
-    subset = filtered_df.iloc[start:end].copy()
+    subset = filtered.iloc[start:end].copy()
     for i, (_, row) in enumerate(subset.iterrows(), 1):
         name = str(row[COLS["PROGRAM_NAME"]] or "")
         org = str(row[COLS["ORG_NAME"]] or "")
@@ -1201,12 +1461,8 @@ else:
         badge_label = status_raw or (
             "Operational"
             if badge_cls == "operational"
-            else ("Open" if badge_cls == "open" else "Closed / Paused")
+            else ("Open" if badge_cls == "open" else "Closed or Paused")
         )
-        badge_label_safe = html.escape(badge_label)
-
-        name_safe = html.escape(name)
-        org_safe = html.escape(org)
 
         # Description (strip placeholder text)
         raw_desc = str(row[COLS["DESC"]] or "").strip()
@@ -1228,7 +1484,7 @@ else:
         email = str(row.get(COLS["EMAIL"]) or "").strip().lower()
         phone_raw = str(row.get(COLS["PHONE"]) or "").strip()
 
-        # Hide call when phone is missing or "not publicly listed – use contact page"
+        # Hide call when phone is missing or not publicly listed
         if (
             "not publicly listed" in phone_raw.lower()
             and "contact page" in phone_raw.lower()
@@ -1241,24 +1497,24 @@ else:
         with st.container():
             st.markdown("<div class='pf-card-marker'></div>", unsafe_allow_html=True)
 
-            # Header: badge + freshness + title + org
+            # Header: badge plus freshness plus title plus org
             st.markdown(
                 f"""
-                <span class='badge {badge_cls}'>{badge_label_safe}</span>
-                <span class='meta'>Last checked: {html.escape(fresh_date) if fresh_date else '—'}
-                {f"({html.escape(fresh_label)})" if fresh_label != "—" else ""}</span>
-                <div class='title'>{name_safe}</div>
-                <div class='org'>{org_safe}</div>
+                <span class='badge {badge_cls}'>{badge_label}</span>
+                <span class='meta'>Last checked: {fresh_date if fresh_date else "—"}
+                {f"({fresh_label})" if fresh_label != "—" else ""}</span>
+                <div class='title'>{name}</div>
+                <div class='org'>{org}</div>
                 """,
                 unsafe_allow_html=True,
             )
 
-            # Description with Show more / Show less
+            # Description with Show more and Show less
             render_description(desc_full, key)
 
-            # Funding + Eligibility strip
+            # Funding and eligibility strip
             fund_label = ""
-            if fund_bucket_val and fund_bucket_val.strip().lower() != UNKNOWN.lower():
+            if fund_bucket_val and fund_bucket_val.strip().lower() != UNKNOWN:
                 fund_label = add_dollar_signs(fund_bucket_val)
 
             fund_type_label = ""
@@ -1266,18 +1522,18 @@ else:
                 fund_type_label = ", ".join(sorted(fund_type_set))
 
             fund_line = (
-                f'<span class="kv"><strong>Funding available:</strong> {html.escape(fund_label)}</span>'
+                f'<span class="kv"><strong>Funding available:</strong> {fund_label}</span>'
                 if fund_label
                 else ""
             )
             fund_type_line = (
-                f'<span class="kv"><strong>Funding type:</strong> {html.escape(fund_type_label)}</span>'
+                f'<span class="kv"><strong>Funding type:</strong> {fund_type_label}</span>'
                 if fund_type_label
                 else ""
             )
 
             elig_line = (
-                f'<span class="kv"><strong>Eligibility highlights:</strong> {html.escape(elig)}</span>'
+                f'<span class="kv"><strong>Eligibility highlights:</strong> {elig}</span>'
                 if (
                     elig
                     and elig.strip().lower()
@@ -1297,7 +1553,7 @@ else:
                 unsafe_allow_html=True,
             )
 
-            # Actions row: Website · Email · Call · ☆/★ Favourite (all text-link style)
+            # Actions row: Website, Email, Call, Favourite (all text-link style)
             st.markdown("<div class='actions-row'>", unsafe_allow_html=True)
 
             cols_actions = st.columns(4)
@@ -1312,12 +1568,12 @@ else:
                         if website.startswith(("http://", "https://"))
                         else f"https://{website}"
                     )
-                    st.markdown(f"[Website]({url})", unsafe_allow_html=False)
+                    st.markdown(f"[Website]({url})", unsafe_allow_html=True)
 
             # Email
             with cols_actions[1]:
                 if email:
-                    st.markdown(f"[Email](mailto:{email})", unsafe_allow_html=False)
+                    st.markdown(f"[Email](mailto:{email})", unsafe_allow_html=True)
 
             # Call (toggle numbers)
             with cols_actions[2]:
@@ -1341,7 +1597,7 @@ else:
                     )
                 if st.session_state.get(call_state_key, False):
                     st.markdown(
-                        f"<small><strong>Call:</strong> {html.escape(phone_display_multi)}</small>",
+                        f"<small><strong>Call:</strong> {phone_display_multi}</small>",
                         unsafe_allow_html=True,
                     )
 
