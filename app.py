@@ -186,12 +186,28 @@ div[data-testid="stVerticalBlock"]:has(.pf-card-marker):hover{
 }
 
 /* Ensure all links inside program cards share the same link colour */
-div[data-testid="stVerticalBlock"]:has(.pf-card-marker) a{
-  color:var(--link) !important;
-  text-decoration:underline;
+/* Unified link styling for Website · Email · Call · Favourite */
+div[data-testid="stVerticalBlock"]:has(.pf-card-marker) a,
+div[data-testid="stVerticalBlock"]:has(.pf-card-marker) .stButton > button{
+color:var(--link) !important;
+text-decoration:underline !important;
+font-size:var(--fs-body);
 }
-div[data-testid="stVerticalBlock"]:has(.pf-card-marker) a:hover{
-  opacity:.85;
+
+div[data-testid="stVerticalBlock"]:has(.pf-card-marker) a:hover,
+div[data-testid="stVerticalBlock"]:has(.pf-card-marker) .stButton > button:hover{
+opacity:.85;
+text-decoration:underline;
+}
+
+div[data-testid="stVerticalBlock"]:has(.pf-card-marker) .stButton > button{
+background:none !important;
+border:none !important;
+padding:0;
+margin:0;
+cursor:pointer;
+box-shadow:none !important;
+border-radius:0 !important;
 }
 
 /* Make Call and Favourite buttons inside cards look like text links */
@@ -247,6 +263,11 @@ section[data-testid="stSidebar"] div.stButton > button{
   justify-content:flex-start;
   margin-bottom:4px;
 }
+/* Optional: center text inside sidebar filter pills */
+section[data-testid="stSidebar"] div.stButton > button{
+  text-align:center !important;
+  justify-content:center !important;
+}
 
 /* Sticky sidebar content (desktop-ish) */
 section[data-testid="stSidebar"] > div{
@@ -268,24 +289,25 @@ div[data-testid="stHorizontalBlock"] button{
   margin-top:4px;
 }
 
-/* Chip and active filter pills */
-.chip-row-marker{
+ /* Chip / active filter pills */
+ .chip-row-marker{
   display:none;
-}
+ }
 
 /* All buttons inside the chip row container become pill chips */
 div[data-testid="stVerticalBlock"]:has(.chip-row-marker) button{
-  border-radius:999px;
-  border:1px solid #D1D5DB;
-  background:#F9FAFB;
-  font-size:13px;
-  padding:4px 10px;
-  margin:4px 6px 4px 0;
-  cursor:pointer;
+border-radius:999px;
+border:1px solid #D1D5DB;
+background:#F9FAFB;
+font-size:13px;
+padding:4px 10px;
+margin:4px 6px 4px 0;
+cursor:pointer;
 }
 div[data-testid="stVerticalBlock"]:has(.chip-row-marker) button:hover{
-  background:#E5E7EB;
-}
+background:#E5E7EB;
+
+
 </style>
 """,
     unsafe_allow_html=True,
@@ -1349,8 +1371,23 @@ def apply_filters(df_in: pd.DataFrame) -> pd.DataFrame:
 
 filtered = apply_filters(df)
 
-# Active filters row directly under search
-render_chips()
+/* Active filter pills under search bar */
+div[data-testid="stVerticalBlock"]:has(.chip-row-marker) button{
+border-radius:999px;
+border:1px solid var(--border);
+background:#E6F2F8;
+color:var(--primary);
+font-size:13px;
+padding:4px 12px;
+margin:4px 6px 4px 0;
+cursor:pointer;
+text-decoration:none !important;
+}
+
+div[data-testid="stVerticalBlock"]:has(.chip-row-marker) button:hover{
+background:#D3E5F5;
+}
+
 
 # ---------------------------- Sort controls and page size ----------------------------
 sort_col, page_col = st.columns([0.6, 0.4])
