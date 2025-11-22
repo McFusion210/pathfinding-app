@@ -1,7 +1,7 @@
 import os
 import re
 from collections import Counter
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple, Set
 
 import numpy as np
 import pandas as pd
@@ -11,8 +11,11 @@ from rapidfuzz import fuzz
 UNKNOWN = "Unknown, not stated"
 FUZZY_THR = 60
 
-# global column map populated in load_data
+# Global column map populated in load_data
 COLS: Dict[str, str] = {}
+
+
+# ---------------------- STYLING / CHROME ----------------------
 
 
 def embed_css() -> None:
@@ -241,6 +244,9 @@ def close_shell() -> None:
     st.markdown("</div>", unsafe_allow_html=True)
 
 
+# ---------------------- TEXT UTILITIES ----------------------
+
+
 def fix_mojibake(s: str) -> str:
     if not s:
         return ""
@@ -291,7 +297,7 @@ def parse_tags_field_clean(val) -> List[str]:
     return out
 
 
-def days_since(value) -> tuple[Optional[int], Optional[str]]:
+def days_since(value) -> Tuple[Optional[int], Optional[str]]:
     if not value:
         return None, None
     try:
@@ -310,6 +316,9 @@ def freshness_label(days: Optional[int]) -> str:
     if days <= 365:
         return f"{days} days ago"
     return f"{days} days ago (may be out of date)"
+
+
+# ---------------------- FUNDING & CONTACT LOGIC ----------------------
 
 
 def funding_bucket(text: str) -> str:
@@ -361,7 +370,7 @@ def add_dollar_signs(bucket: str) -> str:
     return s
 
 
-def normalize_phone(phone: str) -> tuple[str, str]:
+def normalize_phone(phone: str) -> Tuple[str, str]:
     if not phone:
         return "", ""
     s = re.sub(r"[^\d+]", "", phone)
@@ -395,7 +404,7 @@ def format_phone_multi(phone: str) -> str:
     return " | ".join(parts)
 
 
-def parse_email_field(raw: str):
+def parse_email_field(raw: str) -> Tuple[str, str]:
     s = (raw or "").strip()
     if not s:
         return "", ""
@@ -417,6 +426,9 @@ def parse_email_field(raw: str):
     if re.match(r"^[^\s@]+@[^\s@]+\.[^\s@]+$", s):
         return "Email", f"mailto:{s.lower()}"
     return s, ""
+
+
+# ---------------------- DISPLAY HELPERS ----------------------
 
 
 def render_description(desc_full: str, key: str) -> None:
@@ -449,6 +461,9 @@ def render_description(desc_full: str, key: str) -> None:
             if st.button("Show more", key=f"more_{key}"):
                 st.session_state[state_key] = True
                 st.experimental_rerun()
+
+
+# ---------------------- COLUMN INFERENCE ----------------------
 
 
 def map_col(df: pd.DataFrame, candidates: List[str], default: Optional[str] = None) -> str:
@@ -494,12 +509,14 @@ def infer_columns(df: pd.DataFrame) -> Dict[str, str]:
     return cfg
 
 
+# ---------------------- CATEGORY CLASSIFIERS ----------------------
+
+
 def classify_support(tags: List[str], funding_amount) -> List[str]:
     """High level support categories derived from Meta Tags and funding info."""
     lower = "; ".join(tags).lower()
-    cats: set[str] = set()
+    cats: Set[str] = set()
 
-    # Funding and capital
     has_funding_text = any(
         k in lower
         for k in [
@@ -507,6 +524,7 @@ def classify_support(tags: List[str], funding_amount) -> List[str]:
             "loan",
             "flexloan",
             "microloan",
+            "micro-loan",
             "fund",
             "financing",
             "capital",
@@ -565,7 +583,7 @@ def classify_support(tags: List[str], funding_amount) -> List[str]:
 
 def classify_audience(tags: List[str]) -> List[str]:
     lower = "; ".join(tags).lower()
-    cats: set[str] = set()
+    cats: Set[str] = set()
 
     if any(k in lower for k in ["women", "woman", "female", "women-owned"]):
         cats.add("Women and women-led businesses")
@@ -608,8 +626,8 @@ def classify_region(raw) -> List[str]:
     return [raw]
 
 
-def derive_funding_types_from_tags(tags: List[str]) -> set:
-    types: set[str] = set()
+def derive_funding_types_from_tags(tags: List[str]) -> Set[str]:
+    types: Set[str] = set()
     for tag in tags:
         t = tag.lower()
         if "grant" in t:
@@ -627,8 +645,11 @@ def derive_funding_types_from_tags(tags: List[str]) -> set:
     return types
 
 
+# ---------------------- DATA LOADING ----------------------
+
+
 @st.cache_data(show_spinner=False)
-def load_data(path: str) -> tuple[pd.DataFrame, Dict[str, str]]:
+def load_data(path: str) -> Tuple[pd.DataFrame, Dict[str, str]]:
     if not os.path.exists(path):
         raise FileNotFoundError(f"Data file not found: {path}")
     if path.lower().endswith(".xlsx"):
@@ -704,6 +725,9 @@ def load_data(path: str) -> tuple[pd.DataFrame, Dict[str, str]]:
     return df, COLS
 
 
+# ---------------------- SEARCH & FILTER LOGIC ----------------------
+
+
 def fuzzy_mask(df: pd.DataFrame, query: str, threshold: int = FUZZY_THR) -> pd.Series:
     if not query:
         return pd.Series(True, index=df.index)
@@ -728,7 +752,7 @@ def fuzzy_mask(df: pd.DataFrame, query: str, threshold: int = FUZZY_THR) -> pd.S
     return pd.Series(best >= threshold, index=df.index)
 
 
-def apply_filters(df: pd.DataFrame) -> tuple[pd.DataFrame, Dict[str, List[str]]]:
+def apply_filters(df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, List[str]]]:
     q = st.session_state.get("search_q", "")
     mask = fuzzy_mask(df, q, threshold=FUZZY_THR)
 
@@ -796,7 +820,7 @@ def clear_all_filters():
 def render_filter_pills(
     label: str,
     help_text: str,
-    options: List[tuple[str, str]],
+    options: List[Tuple[str, str]],
     session_key: str,
 ):
     """Pill style filters that store clean values but display labels with counts."""
@@ -829,7 +853,7 @@ def render_filter_pills(
                 st.experimental_rerun()
 
 
-def render_funding_type_pills(options: List[tuple[str, str]]):
+def render_funding_type_pills(options: List[Tuple[str, str]]):
     render_filter_pills(
         label="What kind of funding are you looking for?",
         help_text="For example, grants, loans, tax credits, vouchers, or equity investment.",
@@ -873,33 +897,36 @@ def render_chips(active_filters: Dict[str, List[str]]):
     st.markdown("</div>", unsafe_allow_html=True)
 
 
+# ---------------------- MAIN APP ----------------------
+
+
 def main():
     st.set_page_config(page_title="Small Business Supports Finder", layout="wide")
     embed_css()
     embed_logo_html()
 
     data_path = "Pathfinding_Master.xlsx"
-    df, _cols = load_data(data_path)
+    # Ensure COLS is populated globally
+    df, _ = load_data(data_path)
 
     # Hero section
-    st.markdown(
-        "## Find programs and supports for your Alberta business",
-    )
+    st.markdown("## Find programs and supports for your Alberta business")
+
     col1, col2, col3 = st.columns(3)
     with col1:
         st.markdown(
-            "1. **Choose filters**  
-Pick your location, support type, audience, funding needs, and more.",
+            """1. **Choose filters**  
+Pick your location, support type, audience, funding needs, and more."""
         )
     with col2:
         st.markdown(
-            "2. **Browse matching programs**  
-Scroll through cards that match your selections.",
+            """2. **Browse matching programs**  
+Scroll through cards that match your selections."""
         )
     with col3:
         st.markdown(
-            "3. **Take action**  
-Use the website, email, phone, and favourite options to connect or save programs.",
+            """3. **Take action**  
+Use the website, email, phone, and favourite options to connect or save programs."""
         )
 
     if "favorites" not in st.session_state:
@@ -961,7 +988,10 @@ Use the website, email, phone, and favourite options to connect or save programs
         UNKNOWN,
     ]
     funding_bucket_options = [
-        (b, f"{add_dollar_signs(b) if b != UNKNOWN else 'Unknown / not stated'} ({bucket_counts.get(b, 0)})")
+        (
+            b,
+            f"{add_dollar_signs(b) if b != UNKNOWN else 'Unknown / not stated'} ({bucket_counts.get(b, 0)})",
+        )
         for b in funding_bucket_values
         if bucket_counts.get(b, 0) > 0
     ]
@@ -1085,9 +1115,9 @@ Use the website, email, phone, and favourite options to connect or save programs
 
         st.markdown(
             f"""
-            <span class='badge {badge_cls}'>{badge_label}</span>
-            <span class='meta'>Last checked: {fresh_date if fresh_date else "Not available"} - {fresh_label}</span>
-            """,
+<span class='badge {badge_cls}'>{badge_label}</span>
+<span class='meta'>Last checked: {fresh_date if fresh_date else "Not available"} - {fresh_label}</span>
+""",
             unsafe_allow_html=True,
         )
 
@@ -1099,12 +1129,13 @@ Use the website, email, phone, and favourite options to connect or save programs
 
         render_description(desc_full, key)
 
+        # Funding amount display logic
         fund_raw = sanitize_text_keep_smart(
             str(row.get(COLS["FUNDING"]) or "").strip()
         )
         fund_label = ""
         if fund_raw and "$" in fund_raw:
-            fund_label = fund_raw
+            fund_label = fund_raw  # keep exact value if $ is present
         elif fund_bucket_val and fund_bucket_val.strip().lower() != UNKNOWN.lower():
             fund_label = add_dollar_signs(fund_bucket_val)
 
@@ -1148,6 +1179,7 @@ Use the website, email, phone, and favourite options to connect or save programs
 
         st.markdown(meta_html, unsafe_allow_html=True)
 
+        # Actions row
         st.markdown("<div class='actions-row'>", unsafe_allow_html=True)
         cols_actions = st.columns(4)
         call_clicked = False
