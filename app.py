@@ -14,7 +14,7 @@ FUZZY_THR = 60
 # Global column map, filled in main()
 COLS: Dict[str, str] = {}
 
-# Page config at top so it always applies
+# Page config
 st.set_page_config(
     page_title="Small Business Supports Finder",
     page_icon="✅",
@@ -46,27 +46,15 @@ body{
 p{ margin:4px 0 4px 0; }
 small{ font-size:var(--fs-meta); }
 
-/* Search box */
-div[data-testid="stTextInput"] > div > div {
-  border-radius: 999px;
-  border: 2px solid #C3D0E6;
-  background: #F3F4F6;
-  padding: 4px 10px;
-}
-div[data-testid="stTextInput"] input{
-  border:none !important;
-  box-shadow:none !important;
-  background:transparent !important;
-}
-div[data-testid="stTextInput"] input::placeholder{
-  color:#6B7280;
-  opacity:1;
+/* Normalise link colours so visited links do not go purple */
+a:link, a:visited{
+  color:var(--link);
 }
 
 /* Header */
 .goa-header{
   background:#003366;
-  color:#FFFFFF;
+  color:#FFFFFF !important;
   padding:16px 32px;
   display:flex;
   align-items:center;
@@ -74,6 +62,9 @@ div[data-testid="stTextInput"] input::placeholder{
   position:sticky;
   top:0;
   z-index:50;
+}
+.goa-header *{
+  color:#FFFFFF !important;
 }
 .goa-header-logo{
   width:140px;
@@ -195,7 +186,8 @@ h3.program-title{
   margin-top:6px;
 }
 .sidebar-section h3{
-  font-size:14px;
+  font-size:15px;
+  font-weight:600;
   margin:0 0 4px 0;
 }
 .sidebar-section small{
@@ -210,7 +202,7 @@ h3.program-title{
 
 /* Sidebar filter pills (single-column) */
 div[data-testid="stSidebar"] .stButton > button{
-  font-size:12px;
+  font-size:12px !important;  /* headings larger than options */
   padding:8px 10px;
   margin:4px 0 0 0;
   border-radius:12px;
@@ -230,7 +222,7 @@ div[data-testid="stSidebar"] .stButton > button:focus{
   outline:2px solid #2563EB;
 }
 
-/* Active filter chips */
+/* Active filter chips under search bar */
 .chips-row{
   display:flex;
   flex-wrap:wrap;
@@ -252,16 +244,16 @@ div[data-testid="stSidebar"] .stButton > button:focus{
 }
 
 /* Links inside cards */
-div[data-testid="stVerticalBlock"]:has(.pf-card-marker) a{
+.pf-card-marker a{
   color:#007FA3 !important;
   text-decoration:underline;
 }
-div[data-testid="stVerticalBlock"]:has(.pf-card-marker) a:hover{
+.pf-card-marker a:hover{
   opacity:.85;
 }
 
-/* Buttons inside cards treated as text links (Show phone number, Favourite) */
-div[data-testid="stVerticalBlock"]:has(.pf-card-marker) .stButton > button{
+/* Buttons inside cards treated as text links (Call, Favourite) */
+.pf-card-marker .stButton > button{
   background:none !important;
   border:none !important;
   padding:0;
@@ -273,7 +265,7 @@ div[data-testid="stVerticalBlock"]:has(.pf-card-marker) .stButton > button{
   box-shadow:none !important;
   border-radius:0 !important;
 }
-div[data-testid="stVerticalBlock"]:has(.pf-card-marker) .stButton > button:hover{
+.pf-card-marker .stButton > button:hover{
   opacity:.85;
 }
 </style>
@@ -674,7 +666,7 @@ def classify_stage(tags: List[str]) -> List[str]:
     lower = "; ".join(tags).lower()
     cats: Set[str] = set()
 
-    if any(k in lower for k in ["idea stage", "idea-stage", "pre-start", "pre start", "pre-startup", "pre-startup", "prestartup"]):
+    if any(k in lower for k in ["idea stage", "idea-stage", "pre-start", "pre start", "pre-startup", "prestartup"]):
         cats.add("Idea or Pre Startup")
 
     if any(k in lower for k in ["early stage", "start-up", "startup", "new business", "first three years", "0-3 years", "0 to 3 years"]):
@@ -1390,7 +1382,7 @@ Use the website, email, phone, and favourite options to connect or save programs
 
         with cols_actions[2]:
             if phone_display_multi:
-                call_clicked = st.button("Show phone number", key=f"call_{key}")
+                call_clicked = st.button("Call", key=f"call_{key}")
 
         with cols_actions[3]:
             fav_on = key in st.session_state.favorites
