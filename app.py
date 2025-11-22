@@ -14,6 +14,13 @@ FUZZY_THR = 60
 # Global column map, filled in main()
 COLS: Dict[str, str] = {}
 
+# Page config at top so it always applies
+st.set_page_config(
+    page_title="Small Business Supports Finder",
+    page_icon="✅",
+    layout="wide",
+)
+
 
 # ---------------------- STYLING / CHROME ----------------------
 
@@ -32,6 +39,9 @@ def embed_css() -> None:
 html, body, p, div, span{
   font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Noto Sans", "Segoe UI Emoji";
   color:var(--text);
+}
+body{
+  background:#F3F4F6;
 }
 p{ margin:4px 0 4px 0; }
 small{ font-size:var(--fs-meta); }
@@ -190,8 +200,7 @@ h3.program-title{
   font-size:12px;
 }
 
-/* Button styling */
-/* Base reset so main buttons stay normal */
+/* Base button font reset so global buttons are neutral */
 .stButton > button{
   font-size:14px;
 }
@@ -206,6 +215,8 @@ div[data-testid="stSidebar"] .stButton > button{
   background:#F9FAFB;
   color:#111827;
   white-space:nowrap;
+  width:100%;
+  text-align:left;
 }
 div[data-testid="stSidebar"] .stButton > button:hover{
   border-color:#9CA3AF;
@@ -233,6 +244,32 @@ div[data-testid="stSidebar"] .stButton > button:focus{
 }
 .chips-row .stButton > button:hover{
   background:#D1D5DB;
+}
+
+/* Links inside cards */
+div[data-testid="stVerticalBlock"]:has(.pf-card-marker) a{
+  color:#007FA3 !important;
+  text-decoration:underline;
+}
+div[data-testid="stVerticalBlock"]:has(.pf-card-marker) a:hover{
+  opacity:.85;
+}
+
+/* Buttons inside cards treated as text links (Show phone number, Favourite) */
+div[data-testid="stVerticalBlock"]:has(.pf-card-marker) .stButton > button{
+  background:none !important;
+  border:none !important;
+  padding:0;
+  margin:0 16px 0 0;
+  color:#007FA3 !important;
+  text-decoration:underline;
+  font-size:var(--fs-body);
+  cursor:pointer;
+  box-shadow:none !important;
+  border-radius:0 !important;
+}
+div[data-testid="stVerticalBlock"]:has(.pf-card-marker) .stButton > button:hover{
+  opacity:.85;
 }
 </style>
         """,
@@ -628,23 +665,86 @@ def classify_audience(tags: List[str]) -> List[str]:
 
 
 def classify_region(raw) -> List[str]:
+    """
+    Region categories for sidebar pills.
+
+    Implements your changes:
+    - Any Canada / Canada + export -> "Canada"
+    - Rural references and Siksika treated as rural
+    - Edmonton and Calgary as separate categories
+    - Alberta-wide kept
+    - Best-effort North/Central/South where we can infer it
+    """
     if not isinstance(raw, str):
         return ["Location not specified"]
     s = raw.lower().strip()
+    cats: Set[str] = set()
 
-    if "canada" in s and "international" in s:
-        return ["Canada - export and international"]
-    if s == "canada":
-        return ["Anywhere in Canada"]
-    if "rural" in s:
-        return ["Rural Alberta"]
-    if "siksika" in s:
-        return ["Indigenous community - Siksika, AB"]
-    if "edmonton" in s or "calgary" in s:
-        return ["Edmonton and Calgary region"]
-    if "alberta" in s:
-        return ["Alberta-wide"]
-    return [raw]
+    # Canada
+    if "canada" in s:
+        cats.add("Canada")
+
+    # City-specific
+    if "calgary" in s:
+        cats.add("Calgary")
+    if "edmonton" in s:
+        cats.add("Edmonton")
+
+    # Rural and Siksika
+    is_rural = "rural" in s or "siksika" in s
+
+    # Simple markers for north / central / south where we can infer
+    northern_markers = [
+        "fort mcmurray",
+        "fort mcmurray wood buffalo",
+        "wood buffalo",
+        "grand prairie",
+        "grande prairie",
+        "peace river",
+        "high level",
+        "slave lake",
+        "northern",
+    ]
+    central_markers = [
+        "red deer",
+        "central",
+        "rocky mountain house",
+        "camrose",
+        "wetaskiwin",
+    ]
+    southern_markers = [
+        "lethbridge",
+        "medicine hat",
+        "brooks",
+        "taber",
+        "cardston",
+        "southern",
+        "siksika",
+    ]
+
+    if any(m in s for m in northern_markers):
+        cats.add("Northern Alberta")
+    if any(m in s for m in central_markers):
+        cats.add("Central Alberta")
+    if any(m in s for m in southern_markers):
+        cats.add("Southern Alberta")
+
+    if is_rural:
+        cats.add("Rural Alberta")
+
+    # Alberta-wide
+    if s == "alberta" or "alberta-wide" in s:
+        cats.add("Alberta-wide")
+
+    # If nothing matched but Alberta is mentioned, default to Alberta-wide
+    if not cats and "alberta" in s:
+        cats.add("Alberta-wide")
+
+    # Fallback to original text if absolutely nothing matched
+    if not cats:
+        cats.add(raw)
+
+    return sorted(cats)
 
 
 def derive_funding_types_from_tags(tags: List[str]) -> Set[str]:
@@ -928,7 +1028,6 @@ def render_chips(active_filters: Dict[str, List[str]]):
 def main():
     global COLS
 
-    st.set_page_config(page_title="Small Business Supports Finder", layout="wide")
     embed_css()
     embed_logo_html()
 
