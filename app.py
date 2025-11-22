@@ -11,7 +11,7 @@ from rapidfuzz import fuzz
 UNKNOWN = "Unknown, not stated"
 FUZZY_THR = 60
 
-# Global column map populated in load_data
+# Global column map, filled in main()
 COLS: Dict[str, str] = {}
 
 
@@ -27,6 +27,16 @@ def embed_css() -> None:
   --primary:#003366; --primary-2:#007FA3; --border:#D9DEE7; --link:#007FA3;
   --fs-title:24px; --fs-body:15px; --fs-meta:13px;
 }
+
+/* Global text and layout */
+html, body, p, div, span{
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Noto Sans", "Segoe UI Emoji";
+  color:var(--text);
+}
+p{ margin:4px 0 4px 0; }
+small{ font-size:var(--fs-meta); }
+
+/* Search box */
 div[data-testid="stTextInput"] > div > div {
   border-radius: 999px;
   border: 2px solid #C3D0E6;
@@ -42,6 +52,8 @@ div[data-testid="stTextInput"] input::placeholder{
   color:#6B7280;
   opacity:1;
 }
+
+/* Header */
 .goa-header{
   background:#003366;
   color:#FFFFFF;
@@ -67,10 +79,17 @@ div[data-testid="stTextInput"] input::placeholder{
   font-size:14px;
   opacity:.9;
 }
+
+/* App shell */
 .app-shell{
   padding:18px 32px 32px 32px;
   background:#F3F4F6;
 }
+.block-container{
+  padding-top:0 !important;
+}
+
+/* Program cards */
 .pf-card-marker{
   border-radius:12px;
   border:1px solid var(--border);
@@ -136,42 +155,6 @@ h3.program-title{
   color:#9CA3AF;
   font-style:italic;
 }
-html, body, p, div, span{
-  font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Noto Sans", "Segoe UI Emoji";
-  color:var(--text);
-}
-p{ margin:4px 0 4px 0; }
-small{ font-size:var(--fs-meta); }
-.skip-link {
-  position:absolute; left:-9999px; top:auto; width:1px; height:1px; overflow:hidden;
-}
-.skip-link:focus {
-  position:fixed; left:16px; top:12px; width:auto; height:auto; padding:8px 10px;
-  background:#fff; color:#000; border:2px solid #000; z-index:9999;
-}
-.sidebar-section h3{
-  font-size:16px;
-  margin:0 0 4px 0;
-}
-.sidebar-section small{
-  color:#6B7280;
-}
-.chips-row{
-  display:flex;
-  flex-wrap:wrap;
-  gap:6px;
-  margin-top:4px;
-}
-.chip{
-  display:inline-flex;
-  align-items:center;
-  gap:6px;
-  border-radius:999px;
-  background:#E5E7EB;
-  padding:2px 10px;
-  font-size:12px;
-  color:#374151;
-}
 .actions-row{
   margin-top:6px;
 }
@@ -187,6 +170,41 @@ small{ font-size:var(--fs-meta); }
   font-size:var(--fs-meta);
   color:#4B5563;
 }
+
+/* Accessibility skip link */
+.skip-link {
+  position:absolute; left:-9999px; top:auto; width:1px; height:1px; overflow:hidden;
+}
+.skip-link:focus {
+  position:fixed; left:16px; top:12px; width:auto; height:auto; padding:8px 10px;
+  background:#fff; color:#000; border:2px solid #000; z-index:9999;
+}
+
+/* Sidebar sections and pills */
+.sidebar-section h3{
+  font-size:14px;
+  margin:0 0 4px 0;
+}
+.sidebar-section small{
+  color:#6B7280;
+  font-size:12px;
+}
+
+/* Generic pill-like buttons, including sidebar filters */
+.stButton > button {
+  font-size:12px;
+  padding:4px 10px;
+  border-radius:999px;
+  border:1px solid #D1D5DB;
+  background:#F9FAFB;
+  color:#111827;
+}
+.stButton > button:hover{
+  border-color:#9CA3AF;
+  background:#F3F4F6;
+}
+
+/* Links inside cards */
 div[data-testid="stVerticalBlock"]:has(.pf-card-marker) a{
   color:#007FA3 !important;
   text-decoration:underline;
@@ -194,6 +212,8 @@ div[data-testid="stVerticalBlock"]:has(.pf-card-marker) a{
 div[data-testid="stVerticalBlock"]:has(.pf-card-marker) a:hover{
   opacity:.85;
 }
+
+/* Buttons inside cards that we treat as links */
 div[data-testid="stVerticalBlock"]:has(.pf-card-marker) .stButton > button{
   background:none !important;
   border:none !important;
@@ -210,8 +230,23 @@ div[data-testid="stVerticalBlock"]:has(.pf-card-marker) .stButton > button:hover
   opacity:.85;
   text-decoration:underline;
 }
-.block-container{
-  padding-top:0 !important;
+
+/* Active filter chips */
+.chips-row{
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px;
+  margin-top:4px;
+}
+.chip{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  border-radius:999px;
+  background:#E5E7EB;
+  padding:2px 10px;
+  font-size:12px;
+  color:#374151;
 }
 </style>
         """,
@@ -282,7 +317,7 @@ def drop_url_like(text: str) -> str:
 
 
 def parse_tags_field_clean(val) -> List[str]:
-    """Split Meta Tags into clean tokens, dropping web addresses."""
+    """Split Meta Tags into tokens, dropping web addresses."""
     if not isinstance(val, str):
         return []
     s = re.sub(r"[\n\r]+", " ", val)
@@ -648,7 +683,6 @@ def derive_funding_types_from_tags(tags: List[str]) -> Set[str]:
 # ---------------------- DATA LOADING ----------------------
 
 
-@st.cache_data(show_spinner=False)
 def load_data(path: str) -> Tuple[pd.DataFrame, Dict[str, str]]:
     if not os.path.exists(path):
         raise FileNotFoundError(f"Data file not found: {path}")
@@ -659,9 +693,6 @@ def load_data(path: str) -> Tuple[pd.DataFrame, Dict[str, str]]:
 
     df.columns = [str(c).strip() for c in df.columns]
     col_map = infer_columns(df)
-
-    global COLS
-    COLS = col_map
 
     required = [
         "PROGRAM_NAME",
@@ -679,18 +710,18 @@ def load_data(path: str) -> Tuple[pd.DataFrame, Dict[str, str]]:
         "KEY",
     ]
     for key in required:
-        col_name = COLS.get(key, "")
+        col_name = col_map.get(key, "")
         if not col_name or col_name not in df.columns:
             col_name = f"__missing_{key}"
             df[col_name] = ""
-            COLS[key] = col_name
+            col_map[key] = col_name
 
     # Derived funding bucket
-    df["__funding_bucket"] = df[COLS["FUNDING"]].apply(funding_bucket)
+    df["__funding_bucket"] = df[col_map["FUNDING"]].apply(funding_bucket)
 
     # Last checked metrics
     days_list, date_list = [], []
-    for val in df[COLS["LAST_CHECKED"]].tolist():
+    for val in df[col_map["LAST_CHECKED"]].tolist():
         d, ds = days_since(val)
         days_list.append(d)
         date_list.append(ds or "")
@@ -698,9 +729,9 @@ def load_data(path: str) -> Tuple[pd.DataFrame, Dict[str, str]]:
     df["__fresh_date"] = date_list
 
     # Stable key
-    if df[COLS["KEY"]].isna().any():
-        df[COLS["KEY"]] = (
-            df[COLS["PROGRAM_NAME"]]
+    if df[col_map["KEY"]].isna().any():
+        df[col_map["KEY"]] = (
+            df[col_map["PROGRAM_NAME"]]
             .fillna("")
             .astype(str)
             .str.slice(0, 80)
@@ -709,20 +740,20 @@ def load_data(path: str) -> Tuple[pd.DataFrame, Dict[str, str]]:
         )
 
     # Meta tags list
-    df["__tags_list"] = df[COLS["META_TAGS"]].apply(parse_tags_field_clean)
+    df["__tags_list"] = df[col_map["META_TAGS"]].apply(parse_tags_field_clean)
 
     # High level support categories, audience, and region categories
     df["__support_cats"] = [
         classify_support(tags, fa)
-        for tags, fa in zip(df["__tags_list"], df[COLS["FUNDING"]])
+        for tags, fa in zip(df["__tags_list"], df[col_map["FUNDING"]])
     ]
     df["__audience_cats"] = df["__tags_list"].apply(classify_audience)
-    df["__region_cats"] = df[COLS["REGION"]].apply(classify_region)
+    df["__region_cats"] = df[col_map["REGION"]].apply(classify_region)
 
     # Funding type set
     df["__fund_type_set"] = df["__tags_list"].apply(derive_funding_types_from_tags)
 
-    return df, COLS
+    return df, col_map
 
 
 # ---------------------- SEARCH & FILTER LOGIC ----------------------
@@ -837,8 +868,8 @@ def render_filter_pills(
         for i, (value, label_text) in enumerate(options):
             col = cols[i % 2]
             with col:
-                is_on = value in selected
                 btn_label = label_text
+                is_on = value in selected
                 if st.button(btn_label, key=f"{session_key}_{value}"):
                     if is_on:
                         selected.remove(value)
@@ -901,13 +932,15 @@ def render_chips(active_filters: Dict[str, List[str]]):
 
 
 def main():
+    global COLS
+
     st.set_page_config(page_title="Small Business Supports Finder", layout="wide")
     embed_css()
     embed_logo_html()
 
     data_path = "Pathfinding_Master.xlsx"
-    # Ensure COLS is populated globally
-    df, _ = load_data(data_path)
+    df, col_map = load_data(data_path)
+    COLS = col_map
 
     # Hero section
     st.markdown("## Find programs and supports for your Alberta business")
@@ -1061,7 +1094,8 @@ Use the website, email, phone, and favourite options to connect or save programs
         return
 
     if sort_by == "Program name A to Z":
-        filtered = filtered.sort_values(COLS["PROGRAM_NAME"].fillna(""))
+        name_col = COLS["PROGRAM_NAME"]
+        filtered = filtered.sort_values(by=name_col, na_position="last")
     elif sort_by == "Most recently checked":
         filtered = filtered.sort_values("__fresh_days", ascending=True)
 
@@ -1135,7 +1169,7 @@ Use the website, email, phone, and favourite options to connect or save programs
         )
         fund_label = ""
         if fund_raw and "$" in fund_raw:
-            fund_label = fund_raw  # keep exact value if $ is present
+            fund_label = fund_raw
         elif fund_bucket_val and fund_bucket_val.strip().lower() != UNKNOWN.lower():
             fund_label = add_dollar_signs(fund_bucket_val)
 
