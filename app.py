@@ -67,8 +67,10 @@ a:link, a:visited{
   color:#FFFFFF !important;
 }
 .goa-header-logo{
-  width:140px;
-  height:auto;
+  height:40px;
+  width:auto;
+  display:block;
+  object-fit:contain;
 }
 .goa-header-text h1{
   font-size:22px;
@@ -253,20 +255,21 @@ div[data-testid="stSidebar"] .stButton > button:focus{
 }
 
 /* Buttons inside cards treated as text links (Call, Favourite) */
-.pf-card-marker .stButton > button{
+.pf-card-marker div[data-testid="stButton"] > button{
   background:none !important;
   border:none !important;
-  padding:0;
-  margin:0 16px 0 0;
+  padding:0 !important;
+  margin:0 16px 0 0 !important;
   color:#007FA3 !important;
-  text-decoration:underline;
-  font-size:var(--fs-body);
+  text-decoration:underline !important;
+  font-size:var(--fs-body) !important;
   cursor:pointer;
   box-shadow:none !important;
   border-radius:0 !important;
 }
-.pf-card-marker .stButton > button:hover{
+.pf-card-marker div[data-testid="stButton"] > button:hover{
   opacity:.85;
+  text-decoration:underline !important;
 }
 </style>
         """,
@@ -521,7 +524,9 @@ def render_description(desc_full: str, key: str) -> None:
 # ---------------------- COLUMN INFERENCE ----------------------
 
 
-def map_col(df: pd.DataFrame, candidates: List[str], default: Optional[str] = None) -> str:
+def map_col(
+    df: pd.DataFrame, candidates: List[str], default: Optional[str] = None
+) -> str:
     cols = [c for c in df.columns if isinstance(c, str)]
     low = {c.lower(): c for c in cols}
     for cand in candidates:
@@ -666,13 +671,43 @@ def classify_stage(tags: List[str]) -> List[str]:
     lower = "; ".join(tags).lower()
     cats: Set[str] = set()
 
-    if any(k in lower for k in ["idea stage", "idea-stage", "pre-start", "pre start", "pre-startup", "prestartup"]):
+    if any(
+        k in lower
+        for k in [
+            "idea stage",
+            "idea-stage",
+            "pre-start",
+            "pre start",
+            "pre-startup",
+            "prestartup",
+        ]
+    ):
         cats.add("Idea or Pre Startup")
 
-    if any(k in lower for k in ["early stage", "start-up", "startup", "new business", "first three years", "0-3 years", "0 to 3 years"]):
+    if any(
+        k in lower
+        for k in [
+            "early stage",
+            "start-up",
+            "startup",
+            "new business",
+            "first three years",
+            "0-3 years",
+            "0 to 3 years",
+        ]
+    ):
         cats.add("Startup – Operating Less Than 3 Years")
 
-    if any(k in lower for k in ["established", "mature", "3+ years", "three or more years", "5+ years"]):
+    if any(
+        k in lower
+        for k in [
+            "established",
+            "mature",
+            "3+ years",
+            "three or more years",
+            "5+ years",
+        ]
+    ):
         cats.add("Established – 3 or More Years in Business")
 
     if any(k in lower for k in ["scale up", "scale-up", "scaling", "growth stage", "expansion"]):
@@ -1318,7 +1353,9 @@ Use the website, email, phone, and favourite options to connect or save programs
             fund_type_label = ", ".join(sorted(fund_type_set))
 
         if fund_label:
-            fund_line = f'<span class="kv"><strong>Funding available:</strong> {fund_label}</span>'
+            fund_line = (
+                f'<span class="kv"><strong>Funding available:</strong> {fund_label}</span>'
+            )
         else:
             fund_line = ""
 
@@ -1383,6 +1420,11 @@ Use the website, email, phone, and favourite options to connect or save programs
         with cols_actions[2]:
             if phone_display_multi:
                 call_clicked = st.button("Call", key=f"call_{key}")
+            else:
+                st.markdown(
+                    "<span class='placeholder'>No phone number listed.</span>",
+                    unsafe_allow_html=True,
+                )
 
         with cols_actions[3]:
             fav_on = key in st.session_state.favorites
