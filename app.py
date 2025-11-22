@@ -1,23 +1,26 @@
-# app.py — Alberta Pathfinding Tool (Streamlit)
-# Government of Alberta – Small Business Supports & Funding Repository
-
+import os
 import re
-import base64
-from pathlib import Path
+from collections import Counter
+from typing import Dict, List, Optional, Tuple, Set
 
+import numpy as np
 import pandas as pd
 import streamlit as st
 from rapidfuzz import fuzz
 
-# ---------------------------- Page ----------------------------
-st.set_page_config(
-    page_title="Small Business Supports Finder",
-    layout="wide",
-)
+UNKNOWN = "Unknown, not stated"
+FUZZY_THR = 60
 
-# ---------------------------- Styles ----------------------------
-st.markdown(
-    """
+# Global column map, filled in main()
+COLS: Dict[str, str] = {}
+
+
+# ---------------------- STYLING / CHROME ----------------------
+
+
+def embed_css() -> None:
+    st.markdown(
+        """
 <style>
 :root{
   --bg:#FFFFFF; --surface:#FFFFFF; --text:#0A0A0A; --muted:#4B5563;
@@ -25,27 +28,7 @@ st.markdown(
   --fs-title:24px; --fs-body:15px; --fs-meta:13px;
 }
 
-/* Search input styling – make box more visible */
-div[data-testid="stTextInput"] > div > div {
-  border-radius: 999px;
-  border: 2px solid #C3D0E6;
-  background: #F3F4F6;
-  padding: 4px 10px;
-}
-
-/* Remove default input border so only the outer pill shows */
-div[data-testid="stTextInput"] input {
-  border: none;
-  background: transparent;
-}
-
-/* main spacing */
-[data-testid="stAppViewContainer"] .main .block-container{
-  padding-top:0 !important;
-  max-width: 1100px;
-}
-
-/* base typography */
+/* Global text and layout */
 html, body, p, div, span{
   font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Noto Sans", "Segoe UI Emoji";
   color:var(--text);
@@ -53,154 +36,190 @@ html, body, p, div, span{
 p{ margin:4px 0 4px 0; }
 small{ font-size:var(--fs-meta); }
 
-/* Skip link (keyboard users) */
+/* Search box */
+div[data-testid="stTextInput"] > div > div {
+  border-radius: 999px;
+  border: 2px solid #C3D0E6;
+  background: #F3F4F6;
+  padding: 4px 10px;
+}
+div[data-testid="stTextInput"] input{
+  border:none !important;
+  box-shadow:none !important;
+  background:transparent !important;
+}
+div[data-testid="stTextInput"] input::placeholder{
+  color:#6B7280;
+  opacity:1;
+}
+
+/* Header */
+.goa-header{
+  background:#003366;
+  color:#FFFFFF;
+  padding:16px 32px;
+  display:flex;
+  align-items:center;
+  gap:16px;
+  position:sticky;
+  top:0;
+  z-index:50;
+}
+.goa-header-logo{
+  width:140px;
+  height:auto;
+}
+.goa-header-text h1{
+  font-size:22px;
+  margin:0;
+  font-weight:600;
+}
+.goa-header-text p{
+  margin:2px 0 0 0;
+  font-size:14px;
+  opacity:.9;
+}
+
+/* App shell */
+.app-shell{
+  padding:18px 32px 32px 32px;
+  background:#F3F4F6;
+}
+.block-container{
+  padding-top:0 !important;
+}
+
+/* Program cards */
+.pf-card-marker{
+  border-radius:12px;
+  border:1px solid var(--border);
+  padding:16px 16px 14px 16px;
+  background:var(--surface);
+  margin-bottom:12px;
+  box-shadow:0 1px 2px rgba(15,23,42,0.04);
+}
+.pf-card-marker:hover{
+  box-shadow:0 4px 10px rgba(15,23,42,0.08);
+}
+.badge{
+  display:inline-flex;
+  align-items:center;
+  padding:2px 8px;
+  border-radius:999px;
+  font-size:var(--fs-meta);
+  font-weight:500;
+  margin-right:8px;
+}
+.badge-open{
+  background:#DCFCE7;
+  color:#166534;
+}
+.badge-closed{
+  background:#FEE2E2;
+  color:#B91C1C;
+}
+.badge-paused{
+  background:#FEF3C7;
+  color:#92400E;
+}
+.meta{
+  font-size:var(--fs-meta);
+  color:#6B7280;
+}
+h3.program-title{
+  font-size:18px;
+  margin:6px 0 2px 0;
+}
+.program-org{
+  font-size:var(--fs-body);
+  color:#4B5563;
+  margin-bottom:6px;
+}
+.program-desc{
+  font-size:var(--fs-body);
+  color:#111827;
+}
+.meta-strip{
+  display:flex;
+  flex-wrap:wrap;
+  gap:12px;
+  margin-top:6px;
+  margin-bottom:6px;
+}
+.meta-strip .kv{
+  font-size:var(--fs-meta);
+  color:#374151;
+}
+.placeholder{
+  font-size:var(--fs-meta);
+  color:#9CA3AF;
+  font-style:italic;
+}
+.actions-row{
+  margin-top:6px;
+}
+.pf-phone-line{
+  display:block;
+  margin-top:2px;
+  font-size:var(--fs-body);
+}
+.pf-phone-line strong{
+  font-weight:600;
+}
+.results-summary{
+  font-size:var(--fs-meta);
+  color:#4B5563;
+}
+
+/* Accessibility skip link */
 .skip-link {
   position:absolute; left:-9999px; top:auto; width:1px; height:1px; overflow:hidden;
 }
 .skip-link:focus {
   position:fixed; left:16px; top:12px; width:auto; height:auto; padding:8px 10px;
-  background:#fff; color:#000; border:2px solid #feba35; border-radius:6px; z-index:10000;
+  background:#fff; color:#000; border:2px solid #000; z-index:9999;
 }
 
-/* Sticky header (GoA band) */
-.header.goa-header{
-  position:sticky; top:0; z-index:9999;
-  display:flex; align-items:center; gap:14px;
-  background:var(--primary); color:#fff;
-  padding:10px 20px;
-  border-radius:0; margin:0 -1.5rem 0 -1.5rem;
-  border-bottom:2px solid #00294F;
-  box-shadow:0 2px 8px rgba(0,0,0,.08);
-}
-.header.goa-header h2{
-  margin:0;
-  color:#fff;
-  font-weight:800;
-  font-size:26px;
-  letter-spacing:.2px;
-}
-.header.goa-header p{
-  margin:2px 0 0 0;
-  color:#E6F2F8;
+/* Sidebar sections and pills */
+.sidebar-section h3{
   font-size:14px;
+  margin:0 0 4px 0;
 }
-
-/* Spacer so content never sits beneath header */
-.header-spacer{ height:10px; }
-
-/* Card marker + container styling */
-.pf-card-marker{
-  display:none;
-}
-
-/* Style card container based on marker */
-div[data-testid="stVerticalBlock"]:has(.pf-card-marker){
-  background:var(--surface);
-  border:1px solid var(--border);
-  border-radius:16px;
-  padding:12px 16px 12px 16px;
-  box-shadow:0 1px 2px rgba(0,0,0,0.04);
-  margin:8px 0 12px 0;
-  transition:box-shadow .15s ease, border-color .15s ease, transform .15s ease;
-}
-div[data-testid="stVerticalBlock"]:has(.pf-card-marker):hover{
-  box-shadow:0 4px 14px rgba(0,0,0,0.08);
-  border-color:#C3D0E6;
-  transform:translateY(-1px);
-}
-
-.title{
-  margin:4px 0 2px 0;
-  font-weight:800;
-  color:var(--primary);
-  font-size:var(--fs-title);
-}
-.org,.meta{
-  color:var(--muted);
-  font-size:var(--fs-meta);
-}
-.meta{ margin-left:8px; }
-.placeholder{ color:#7C8796; font-style:italic; }
-
-/* Status badges */
-.badge{
-  display:inline-block;
+.sidebar-section small{
+  color:#6B7280;
   font-size:12px;
-  padding:3px 9px;
+}
+
+/* Generic pill-like buttons, including sidebar filters */
+.stButton > button {
+  font-size:12px;
+  padding:4px 10px;
   border-radius:999px;
-  margin-right:6px;
+  border:1px solid #D1D5DB;
+  background:#F9FAFB;
+  color:#111827;
 }
-.badge.operational{
-  background:#DFF3E6;
-  color:#0B3D2E;
-  border:1px solid #A6D9BE;
-}
-.badge.open{
-  background:#E0EAFF;
-  color:#062F6E;
-  border:1px solid #B7CBFF;
-}
-.badge.closed{
-  background:#FBE5E8;
-  color:#6D1B26;
-  border:1px solid #F2BAC1;
+.stButton > button:hover{
+  border-color:#9CA3AF;
+  background:#F3F4F6;
 }
 
-/* Funding + Eligibility strip */
-.meta-info{
-  display:flex;
-  gap:16px;
-  flex-wrap:wrap;
-  margin:6px 0 0 0;
-  padding:6px 0 0 0;
-  border-top:none;
-  border-bottom:none;
-}
-.kv strong{ font-weight:700; }
-
-/* Actions row wrapper */
-.actions-row{
-  margin-top:6px;
-}
-
-/* Inline link-style anchors */
-.actions-links{
-  display:flex;
-  flex-wrap:wrap;
-  gap:8px;
-}
-.actions-links a{
-  color:var(--link);
-  text-decoration:underline;
-  font-size:var(--fs-body);
-  transition:opacity .15s ease, text-decoration-color .15s ease;
-}
-.actions-links a:hover{
-  opacity:.85;
-  text-decoration:underline;
-}
-.actions-links a:focus{
-  outline:3px solid #feba35;
-  outline-offset:2px;
-  border-radius:4px;
-}
-
-/* Ensure all links inside program cards share the same link colour */
+/* Links inside cards */
 div[data-testid="stVerticalBlock"]:has(.pf-card-marker) a{
-  color:var(--link) !important;
+  color:#007FA3 !important;
   text-decoration:underline;
 }
 div[data-testid="stVerticalBlock"]:has(.pf-card-marker) a:hover{
   opacity:.85;
 }
 
-/* Make Call / Favourite buttons inside cards look like text links */
+/* Buttons inside cards that we treat as links */
 div[data-testid="stVerticalBlock"]:has(.pf-card-marker) .stButton > button{
   background:none !important;
   border:none !important;
   padding:0;
   margin:0;
-  color:var(--link) !important;
+  color:#007FA3 !important;
   text-decoration:underline;
   font-size:var(--fs-body);
   cursor:pointer;
@@ -211,249 +230,73 @@ div[data-testid="stVerticalBlock"]:has(.pf-card-marker) .stButton > button:hover
   opacity:.85;
   text-decoration:underline;
 }
-div[data-testid="stVerticalBlock"]:has(.pf-card-marker) .stButton > button:focus{
-  outline:3px solid #feba35;
-  outline-offset:2px;
-}
 
-/* Make info buttons smaller */
-button[aria-label="ℹ️"]{
-  font-size:12px !important;
-  padding:0 6px !important;
-}
-
-/* Global primary/secondary buttons */
-button[kind="primary"]{
-  background:var(--primary);
-  color:#fff;
-  border-radius:8px;
-  border:1px solid #00294F;
-}
-button[kind="primary"]:hover{
-  background:#00294F;
-}
-button[kind="secondary"]{
-  background:#FFFFFF;
-  color:var(--text);
-  border-radius:8px;
-  border:1px solid var(--border);
-}
-
-/* Pill-style sidebar filter buttons (full-width) */
-section[data-testid="stSidebar"] div.stButton > button{
-  border-radius:999px;
-  width:100% !important;
+/* Active filter chips */
+.chips-row{
   display:flex;
-  justify-content:flex-start;
-  margin-bottom:4px;
-}
-
-/* Sticky sidebar content (desktop-ish) */
-section[data-testid="stSidebar"] > div{
-  position:sticky;
-  top:80px;
-  max-height:calc(100vh - 96px);
-  overflow-y:auto;
-}
-
-/* Download button styling */
-div[data-testid="stDownloadButton"] > button{
-  border-radius:8px;
-  border:1px solid var(--border);
-  background:#F3F4F6;
-}
-
-/* Pagination buttons spacing */
-div[data-testid="stHorizontalBlock"] button{
+  flex-wrap:wrap;
+  gap:6px;
   margin-top:4px;
 }
-
-/* Chip / active filter pills */
-.chip-row-marker{
-  display:none;
-}
-
-/* All buttons inside the chip row container become pill chips */
-div[data-testid="stVerticalBlock"]:has(.chip-row-marker) button{
+.chip{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
   border-radius:999px;
-  border:1px solid #D1D5DB;
-  background:#F9FAFB;
-  font-size:13px;
-  padding:4px 10px;
-  margin:4px 6px 4px 0;
-  cursor:pointer;
-}
-div[data-testid="stVerticalBlock"]:has(.chip-row-marker) button:hover{
   background:#E5E7EB;
+  padding:2px 10px;
+  font-size:12px;
+  color:#374151;
 }
 </style>
-""",
-    unsafe_allow_html=True,
-)
-
-# ---------------------------- Optional: inline GoA CSS if present ----------------------------
-def inline_gov_css():
-    for fname in (
-        "goa-application-layouts.css",
-        "goa-application-layout.print.css",
-        "goa-components.css",
-    ):
-        p = Path(fname)
-        if p.exists():
-            try:
-                st.markdown(
-                    f"<style>{p.read_text(encoding='utf-8')}</style>",
-                    unsafe_allow_html=True,
-                )
-            except Exception:
-                pass
+        """,
+        unsafe_allow_html=True,
+    )
 
 
-inline_gov_css()
-
-# ---------------------------- Header / Logo ----------------------------
-def embed_logo_html():
-    """Embed GoA logo; prefers SVG, then PNG, else text fallback."""
-    svg_path = Path("assets/GoA-logo.svg")
-    png_path = Path("assets/GoA-logo.png")
-    if svg_path.exists():
-        b64 = base64.b64encode(svg_path.read_bytes()).decode()
-        return (
-            f'<img src="data:image/svg+xml;base64,{b64}" '
-            f'alt="Government of Alberta" style="height:44px;">'
-        )
-    if png_path.exists():
-        b64 = base64.b64encode(png_path.read_bytes()).decode()
-        return (
-            f'<img src="data:image/png;base64,{b64}" '
-            f'alt="Government of Alberta" style="height:44px;">'
-        )
-    return '<div style="font-weight:700;font-size:18px">Government of Alberta</div>'
-
-
-st.markdown(
-    '<a class="skip-link" href="#results-main">Skip to results</a>',
-    unsafe_allow_html=True,
-)
-
-st.markdown(
-    f"""
-<div class="header goa-header goa-app-header">
-  {embed_logo_html()}
-  <div>
-    <h2>Small Business Supports Finder</h2>
+def embed_logo_html() -> None:
+    logo_url = (
+        "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f5/"
+        "Alberta_Government_Logo.svg/320px-Alberta_Government_Logo.svg.png"
+    )
+    st.markdown(
+        f"""
+<a href="#main" class="skip-link">Skip to main content</a>
+<div class="goa-header">
+  <img src="{logo_url}" alt="Government of Alberta" class="goa-header-logo" />
+  <div class="goa-header-text">
+    <h1>Small Business Supports Finder</h1>
     <p>Helping Alberta entrepreneurs and small businesses find programs, funding, and services quickly.</p>
   </div>
 </div>
-<div class="header-spacer"></div>
+<div id="main" class="app-shell">
 """,
-    unsafe_allow_html=True,
-)
-
-# ---------------------------- Promise + How it works ----------------------------
-st.markdown(
-    """
-### Find programs and supports for your Alberta business
-
-This tool helps entrepreneurs and small businesses quickly find funding and business supports that match their stage, location, and needs.
-"""
-)
-
-st.markdown("<div style='height:22px;'></div>", unsafe_allow_html=True)
-
-with st.container():
-    cols = st.columns(3)
-    with cols[0]:
-        st.markdown(
-            "**1. Choose filters**  \n"
-            "Pick your region, business stage, audience, funding type and the supports you're looking for."
-        )
-    with cols[1]:
-        st.markdown(
-            "**2. Browse matching programs**  \n"
-            "Scroll through program cards that match your selections and compare options."
-        )
-    with cols[2]:
-        st.markdown(
-            "**3. Take action**  \n"
-            "Use the Website, Email, Call and Favourite options to connect with programs or save them for later."
-        )
-
-st.markdown("<div style='height:40px;'></div>", unsafe_allow_html=True)
-
-# ---------------------------- Data ----------------------------
-DATA_FILE = st.secrets.get("DATA_FILE", "Pathfinding_Master.xlsx")
-if not Path(DATA_FILE).exists():
-    st.info("Upload **Pathfinding_Master.xlsx** to the project root and rerun.")
-    st.stop()
+        unsafe_allow_html=True,
+    )
 
 
-@st.cache_data(show_spinner=False)
-def load_df(path):
-    df_loaded = pd.read_excel(path)
-    df_loaded.columns = [str(c).strip() for c in df_loaded.columns]
-    return df_loaded
+def close_shell() -> None:
+    st.markdown("</div>", unsafe_allow_html=True)
 
 
-df = load_df(DATA_FILE)
+# ---------------------- TEXT UTILITIES ----------------------
 
 
-def map_col(df_in, name_hint: str, fallbacks: list[str]) -> str | None:
-    for c in df_in.columns:
-        if name_hint.lower() in str(c).lower():
-            return c
-    for fb in fallbacks:
-        if fb in df_in.columns:
-            return fb
-    return None
-
-
-COLS = {
-    "PROGRAM_NAME": map_col(df, "program name", ["Program Name"]),
-    "ORG_NAME": map_col(df, "organization name", ["Organization Name"]),
-    "DESC": map_col(df, "program description", ["Program Description"]),
-    "ELIG": map_col(df, "eligibility", ["Eligibility Description", "Eligibility"]),
-    "EMAIL": map_col(df, "email", ["Email Address"]),
-    "PHONE": map_col(df, "phone", ["Phone Number"]),
-    "WEBSITE": map_col(df, "website", ["Program Website", "Website"]),
-    "REGION": map_col(df, "region", ["Geographic Region", "Region"]),
-    "TAGS": map_col(df, "meta", ["Meta Tags", "Tags"]),
-    "FUNDING": map_col(df, "funding amount", ["Funding Amount", "Funding"]),
-    "STATUS": map_col(df, "operational status", ["Operational Status", "Status"]),
-    "LAST_CHECKED": map_col(df, "last checked", ["Last Checked (MT)", "Last Checked"]),
-    "KEY": map_col(df, "_key_norm", ["_key_norm", "Key"]),
-}
-
-for k, v in COLS.items():
-    if v is None or v not in df.columns:
-        new_name = f"__missing_{k}"
-        df[new_name] = ""
-        COLS[k] = new_name
-
-# ---------------------------- Text utilities ----------------------------
 def fix_mojibake(s: str) -> str:
-    if not isinstance(s, str):
+    if not s:
         return ""
-    repl = {
-        "â€™": "’",
-        "â€œ": "“",
-        "â€\x9d": "”",
-        "â€“": "–",
-        "â€”": "—",
-        "Â": "",
-        "â€": "”",
-        "â€˜": "‘",
-        "â€\x94": "—",
-        "�": "",
-    }
-    for bad, good in repl.items():
-        s = s.replace(bad, good)
-    return s
+    return (
+        s.replace("â€“", "-")
+        .replace("Ã©", "é")
+        .replace("â€™", "'")
+        .replace("â€œ", '"')
+        .replace("â€\x9d", '"')
+    )
 
 
 def sanitize_text_keep_smart(s: str) -> str:
     s = fix_mojibake(s or "")
-    for b in ["•", "●", "○", "▪", "▫", "■", "□", "–·", "‣"]:
+    for b in ["•", "●", "○", "▪", "▫", "■", "□", "-·", "‣"]:
         s = s.replace(b, " ")
     s = re.sub(r"[\U0001F300-\U0001FAFF]", " ", s)
     s = re.sub(r"[\u2600-\u26FF]", " ", s)
@@ -462,87 +305,115 @@ def sanitize_text_keep_smart(s: str) -> str:
     return s
 
 
-URL_LIKE = re.compile(r"https?://|www\.|\.ca\b|\.com\b|\.org\b|\.net\b", re.I)
-NUMERICY = re.compile(r"^\d{1,4}$")
+URL_LIKE = re.compile(r"https?://|www\.|\.ca\b|\.com\b|\.org\b", re.I)
 
 
-def parse_tags_field_clean(s):
-    if not isinstance(s, str):
+def drop_url_like(text: str) -> str:
+    if not text:
+        return ""
+    if URL_LIKE.search(text):
+        return ""
+    return text
+
+
+def parse_tags_field_clean(val) -> List[str]:
+    """Split Meta Tags into tokens, dropping web addresses."""
+    if not isinstance(val, str):
         return []
-    parts = re.split(r"[;,/|]", s)
-    out = []
+    s = re.sub(r"[\n\r]+", " ", val)
+    parts = [p.strip() for p in s.split(";")]
+    out: List[str] = []
     for p in parts:
-        t = (p or "").strip().lower()
-        if not t:
+        if not p:
             continue
-        if URL_LIKE.search(t):
+        if URL_LIKE.search(p):
             continue
-        if NUMERICY.match(t):
-            continue
-        out.append(t)
+        out.append(p)
     return out
 
 
-def add_dollar_signs(text: str) -> str:
-    if not text:
-        return text
-    if "unknown" in text.lower():
-        return text
-    return re.sub(r"(?<!\$)(\d[\d,\.]*\s*[KkMm]?)", r"$\1", text)
-
-
-def funding_bucket(amount):
-    s = str(amount or "").replace(",", "")
-    nums = re.findall(r"\d+\.?\d*", s)
-    if not nums:
-        return "Unknown / Not stated"
+def days_since(value) -> Tuple[Optional[int], Optional[str]]:
+    if not value:
+        return None, None
     try:
-        val = float(nums[-1])
-    except ValueError:
-        return "Unknown / Not stated"
-    if val < 5000:
-        return "Under 5K"
-    if val < 25000:
-        return "5K–25K"
-    if val < 100000:
-        return "25K–100K"
-    if val < 500000:
-        return "100K–500K"
-    return "500K+"
-
-
-def days_since(date_str):
-    try:
-        d = pd.to_datetime(date_str, errors="coerce")
-        if pd.isna(d):
-            return None, None
-        delta = (pd.Timestamp.utcnow().normalize() - d.normalize()).days
-        return delta, d.strftime("%Y-%m-%d")
+        d = pd.to_datetime(value)
     except Exception:
         return None, None
+    delta = (pd.Timestamp("today").normalize() - d.normalize()).days
+    return int(delta), d.date().isoformat()
 
 
-def freshness_label(days):
+def freshness_label(days: Optional[int]) -> str:
     if days is None:
-        return "—"
-    if days <= 30:
-        return f"{days}d ago"
-    if days <= 180:
-        return f"{days // 30}mo ago"
-    return f"{days // 365}y ago"
+        return "Last checked date not available"
+    if days <= 90:
+        return f"{days} days ago (recent)"
+    if days <= 365:
+        return f"{days} days ago"
+    return f"{days} days ago (may be out of date)"
 
 
-# Phone helpers
-def normalize_phone(phone: str):
-    """
-    Return (display, tel) where:
-      - display looks like 403-555-1234
-      - tel looks like +14035551234
-    """
+# ---------------------- FUNDING & CONTACT LOGIC ----------------------
+
+
+def funding_bucket(text: str) -> str:
+    """Safe bucketer for Funding Amount."""
+    if text is None or (isinstance(text, float) and pd.isna(text)):
+        return UNKNOWN
+
+    s = sanitize_text_keep_smart(str(text))
+
+    matches = re.findall(r"\$?\s*([\d,]+)", s)
+    nums: List[int] = []
+
+    for p in matches:
+        digit_groups = re.findall(r"\d+", p)
+        if not digit_groups:
+            continue
+        num_str = "".join(digit_groups)
+        if not num_str:
+            continue
+        try:
+            nums.append(int(num_str))
+        except ValueError:
+            continue
+
+    if not nums:
+        return UNKNOWN
+
+    mx = max(nums)
+    if mx < 5000:
+        return "Under 5K"
+    if mx < 25000:
+        return "5K to 25K"
+    if mx < 100000:
+        return "25K to 100K"
+    if mx < 500000:
+        return "100K to 500K"
+    return "Over 500K"
+
+
+def add_dollar_signs(bucket: str) -> str:
+    s = bucket.strip()
+    if s.startswith("Under "):
+        return "Under $" + s[len("Under ") :]
+    if s.startswith("Over "):
+        return "Over $" + s[len("Over ") :]
+    if " to " in s:
+        a, b = s.split(" to ", 1)
+        return f"${a} to ${b}"
+    return s
+
+
+def normalize_phone(phone: str) -> Tuple[str, str]:
     if not phone:
         return "", ""
-    digits = re.sub(r"\D", "", phone)
-    if len(digits) == 11 and digits.startswith("1"):  # North America 1 + 10 digits
+    s = re.sub(r"[^\d+]", "", phone)
+    digits = re.sub(r"\D", "", s)
+    if not digits:
+        return phone, phone
+    country = ""
+    if digits.startswith("1") and len(digits) == 11:
         country = "1"
         digits = digits[1:]
     elif len(digits) == 10:
@@ -568,902 +439,685 @@ def format_phone_multi(phone: str) -> str:
     return " | ".join(parts)
 
 
-def render_description(desc_full: str, program_key: str, max_chars: int = 260):
-    """Show description with Show more / Show less controls."""
-    desc_full = desc_full or ""
-    if not desc_full.strip():
+def parse_email_field(raw: str) -> Tuple[str, str]:
+    s = (raw or "").strip()
+    if not s:
+        return "", ""
+    lower = s.lower()
+    m = re.match(r"\[([^\]]+)\]\((mailto:[^)]+)\)", s, re.IGNORECASE)
+    if m:
+        label = m.group(1) or "Email"
+        href = m.group(2)
+        if "not publicly listed" in href.lower():
+            return "Email not publicly listed. Use the program website contact page.", ""
+        return label, href
+    if "not publicly listed" in lower:
+        return "Email not publicly listed. Use the program website contact page.", ""
+    if lower.startswith("mailto:"):
+        addr = s.split(":", 1)[1].strip()
+        if addr and "not publicly listed" not in addr.lower():
+            return "Email", f"mailto:{addr}"
+        return "Email not publicly listed. Use the program website contact page.", ""
+    if re.match(r"^[^\s@]+@[^\s@]+\.[^\s@]+$", s):
+        return "Email", f"mailto:{s.lower()}"
+    return s, ""
+
+
+# ---------------------- DISPLAY HELPERS ----------------------
+
+
+def render_description(desc_full: str, key: str) -> None:
+    desc_full = sanitize_text_keep_smart(desc_full or "")
+    if not desc_full:
         st.markdown(
-            '<p><span class="placeholder">No description provided.</span></p>',
+            "<p class='placeholder'>No description available.</p>",
             unsafe_allow_html=True,
         )
         return
-
-    if len(desc_full) <= max_chars:
-        st.markdown(f"<p>{desc_full}</p>", unsafe_allow_html=True)
-        return
-
-    state_key = f"show_full_desc_{program_key}"
-    show_full = st.session_state.get(state_key, False)
-
-    if show_full:
-        st.markdown(f"<p>{desc_full}</p>", unsafe_allow_html=True)
-        if st.button("Show less", key=f"{state_key}_less"):
+    short = desc_full
+    limit = 260
+    if len(desc_full) > limit:
+        short = desc_full[:limit].rsplit(" ", 1)[0] + "..."
+    state_key = f"show_more_{key}"
+    if state_key not in st.session_state:
+        st.session_state[state_key] = False
+    if st.session_state[state_key]:
+        st.markdown(
+            f"<p class='program-desc'>{desc_full}</p>", unsafe_allow_html=True
+        )
+        if st.button("Show less", key=f"less_{key}"):
             st.session_state[state_key] = False
-            st.rerun()
+            st.experimental_rerun()
     else:
-        short = desc_full[:max_chars]
-        if " " in short:
-            short = short.rsplit(" ", 1)[0]
-        short = short + "..."
-        st.markdown(f"<p>{short}</p>", unsafe_allow_html=True)
-        if st.button("Show more", key=f"{state_key}_more"):
-            st.session_state[state_key] = True
-            st.rerun()
-
-# ---------------------------- Normalization ----------------------------
-ACTIVITY_NORMALIZATION_MAP = {
-    "mentor": "Mentorship",
-    "mentorship": "Mentorship",
-    "mentoring": "Mentorship",
-    "advis": "Advisory / Consulting",
-    "advisory": "Advisory / Consulting",
-    "advising": "Advisory / Consulting",
-    "advice": "Advisory / Consulting",
-    "coaching": "Coaching",
-    "accelerator": "Accelerator / Incubator",
-    "acceleration": "Accelerator / Incubator",
-    "incubator": "Accelerator / Incubator",
-    "innovation": "Innovation / R&D",
-    "research": "Innovation / R&D",
-    "r&d": "Innovation / R&D",
-    "export": "Export Readiness",
-    "network": "Networking / Peer Support",
-    "networking": "Networking / Peer Support",
-    "peer": "Networking / Peer Support",
-    "workshop": "Workshops / Training",
-    "workshops": "Workshops / Training",
-    "training": "Workshops / Training",
-    "cohort": "Cohort / Program Participation",
-    "program": "Cohort / Program Participation",
-}
-
-STAGE_NORMALIZATION_MAP = {
-    "startup": "Startup / Early Stage",
-    "start-up": "Startup / Early Stage",
-    "early": "Startup / Early Stage",
-    "pre-revenue": "Startup / Early Stage",
-    "pre revenue": "Startup / Early Stage",
-    "ideation": "Startup / Early Stage",
-    "prototype": "Startup / Early Stage",
-    "preseed": "Startup / Early Stage",
-    "pre-seed": "Startup / Early Stage",
-    "seed": "Startup / Early Stage",
-    "scaleup": "Growth / Scale",
-    "scale-up": "Growth / Scale",
-    "scale": "Growth / Scale",
-    "growth": "Growth / Scale",
-    "expand": "Growth / Scale",
-    "expansion": "Growth / Scale",
-    "commercializ": "Growth / Scale",
-    "market-entry": "Growth / Scale",
-    "market entry": "Growth / Scale",
-    "mature": "Mature / Established",
-    "established": "Mature / Established",
-    "existing": "Mature / Established",
-}
-
-FUNDING_TYPE_MAP = {
-    "grant": "Grant",
-    "non-repayable": "Grant",
-    "nonrepayable": "Grant",
-    "contribution": "Grant",
-    "loan": "Loan",
-    "microloan": "Loan",
-    "micro loan": "Loan",
-    "financ": "Financing",
-    "capital": "Financing",
-    "facility": "Financing",
-    "subsid": "Subsidy",
-    "wage subsidy": "Subsidy",
-    "salary subsidy": "Subsidy",
-    "tax credit": "Tax Credit",
-    "taxcredit": "Tax Credit",
-    "rebate": "Rebate",
-    "cash rebate": "Rebate",
-    "credit": "Credit",
-    "line of credit": "Credit",
-    "equity": "Equity Investment",
-    "venture capital": "Equity Investment",
-    "vc": "Equity Investment",
-    "angel": "Equity Investment",
-    "co-invest": "Equity Investment",
-    "co invest": "Equity Investment",
-}
-
-FUNDING_TYPE_DESCRIPTIONS = {
-    "Grant": "Non-repayable funding that supports eligible activities when program conditions are met.",
-    "Loan": "Funding that must be repaid, usually with interest and defined repayment terms.",
-    "Financing": "Access to capital such as facilities or blended products that may combine different tools.",
-    "Subsidy": "Support that offsets specific costs, for example wages, training, or program fees.",
-    "Tax Credit": "A credit that reduces taxes payable based on eligible spending or investment.",
-    "Rebate": "Funding paid after you incur eligible costs and submit proof of spending.",
-    "Credit": "A revolving credit limit or line of credit that you can draw from as needed.",
-    "Equity Investment": "Investment where the funder receives an ownership stake in the business.",
-}
-
-AUDIENCE_NORMALIZATION_MAP = {
-    "women": "Women",
-    "woman": "Women",
-    "female": "Women",
-    "indigenous": "Indigenous",
-    "first nation": "Indigenous",
-    "first nations": "Indigenous",
-    "aboriginal": "Indigenous",
-    "metis": "Indigenous",
-    "inuit": "Indigenous",
-    "black": "Black entrepreneurs",
-    "afro": "Black entrepreneurs",
-    "immigrant": "Immigrants / Newcomers",
-    "newcomer": "Immigrants / Newcomers",
-    "refugee": "Immigrants / Newcomers",
-    "youth": "Youth",
-    "student": "Students",
-    "rural": "Rural",
-    "veteran": "Veterans",
-    "disabil": "Persons with disabilities",
-    "lgbt": "2SLGBTQ+",
-    "2slgbt": "2SLGBTQ+",
-    "queer": "2SLGBTQ+",
-    "tech": "Technology / Digital",
-    "technology": "Technology / Digital",
-    "digital": "Technology / Digital",
-    "ict": "Technology / Digital",
-    "software": "Technology / Digital",
-    "saas": "Technology / Digital",
-    "tourism": "Tourism & Hospitality",
-    "hospitality": "Tourism & Hospitality",
-    "hotel": "Tourism & Hospitality",
-    "visitor": "Tourism & Hospitality",
-    "agri": "Agriculture & Agri-food",
-    "agriculture": "Agriculture & Agri-food",
-    "farm": "Agriculture & Agri-food",
-    "farmer": "Agriculture & Agri-food",
-    "agri-food": "Agriculture & Agri-food",
-    "agri food": "Agriculture & Agri-food",
-    "energy": "Energy",
-    "oil": "Energy",
-    "gas": "Energy",
-    "oilsands": "Energy",
-    "oil sands": "Energy",
-    "petro": "Energy",
-    "cleantech": "Clean Technology",
-    "clean tech": "Clean Technology",
-    "net-zero": "Clean Technology",
-    "net zero": "Clean Technology",
-    "low-carbon": "Clean Technology",
-    "low carbon": "Clean Technology",
-    "manufactur": "Manufacturing",
-    "industrial": "Manufacturing",
-    "film": "Creative Industries",
-    "screen": "Creative Industries",
-    "tv": "Creative Industries",
-    "television": "Creative Industries",
-    "creative": "Creative Industries",
-    "culture": "Creative Industries",
-    "arts": "Creative Industries",
-}
+        st.markdown(
+            f"<p class='program-desc'>{short}</p>", unsafe_allow_html=True
+        )
+        if len(desc_full) > limit:
+            if st.button("Show more", key=f"more_{key}"):
+                st.session_state[state_key] = True
+                st.experimental_rerun()
 
 
-def normalize_activity_tag(tag: str) -> str:
-    t = (tag or "").strip().lower()
-    for needle, canon in ACTIVITY_NORMALIZATION_MAP.items():
-        if needle in t:
-            return canon
+# ---------------------- COLUMN INFERENCE ----------------------
+
+
+def map_col(df: pd.DataFrame, candidates: List[str], default: Optional[str] = None) -> str:
+    cols = [c for c in df.columns if isinstance(c, str)]
+    low = {c.lower(): c for c in cols}
+    for cand in candidates:
+        lc = cand.lower()
+        if lc in low:
+            return low[lc]
+    for c in cols:
+        for cand in candidates:
+            if cand.lower() in c.lower():
+                return c
+    if default and default in df.columns:
+        return default
     return ""
 
 
-def normalize_stage_tag(tag: str) -> str:
-    t = (tag or "").strip().lower()
-    for needle, canon in STAGE_NORMALIZATION_MAP.items():
-        if needle in t:
-            return canon
-    return ""
-
-
-def normalize_audience_tag(tag: str) -> str:
-    t = (tag or "").strip().lower()
-    for needle, canon in AUDIENCE_NORMALIZATION_MAP.items():
-        if needle in t:
-            return canon
-    return ""
-
-
-def detect_funding_types_from_tags(s: str) -> set[str]:
-    tags = parse_tags_field_clean(s)
-    hits: set[str] = set()
-    for t in tags:
-        tl = t.lower()
-        for needle, canon in FUNDING_TYPE_MAP.items():
-            if needle in tl:
-                hits.add(canon)
-    return hits
-
-
-def row_activity_norm_set(raw_tag_field: str) -> set[str]:
-    return {
-        normalize_activity_tag(rt)
-        for rt in parse_tags_field_clean(raw_tag_field)
-        if normalize_activity_tag(rt)
+def infer_columns(df: pd.DataFrame) -> Dict[str, str]:
+    cfg = {
+        "PROGRAM_NAME": map_col(df, ["Program Name", "Program", "Support name"]),
+        "ORGANIZATION": map_col(
+            df, ["Organization Name", "Organization", "Provider", "Delivery partner"]
+        ),
+        "DESCRIPTION": map_col(df, ["Program Description", "Description", "Summary"]),
+        "ELIGIBILITY": map_col(
+            df, ["Eligibility Description", "Eligibility", "Eligibility highlights"]
+        ),
+        "WEBSITE": map_col(df, ["Program Website", "Website", "URL", "Link"]),
+        "EMAIL": map_col(df, ["Email Address", "Email", "E-mail", "Contact email"]),
+        "PHONE": map_col(df, ["Phone Number", "Phone", "Telephone", "Contact phone"]),
+        "REGION": map_col(df, ["Geographic Region", "Region", "Location", "Geography"]),
+        "FUNDING": map_col(
+            df, ["Funding Amount", "Funding amount", "Funding", "Max funding"]
+        ),
+        "STATUS": map_col(df, ["Operational Status", "Status", "Program status"]),
+        "LAST_CHECKED": map_col(
+            df, ["Last Checked (MT)", "Last checked", "Validated on", "Last updated"]
+        ),
+        "META_TAGS": map_col(df, ["Meta Tags", "Tags", "Keywords"]),
+        "KEY": map_col(df, ["_key_norm", "Key", "Unique id", "Program key"]),
     }
+    return cfg
 
 
-def row_stage_norm_set(raw_tag_field: str) -> set[str]:
-    return {
-        normalize_stage_tag(rt)
-        for rt in parse_tags_field_clean(raw_tag_field)
-        if normalize_stage_tag(rt)
-    }
+# ---------------------- CATEGORY CLASSIFIERS ----------------------
 
 
-def row_audience_norm_set(raw_tag_field: str) -> set[str]:
-    return {
-        normalize_audience_tag(rt)
-        for rt in parse_tags_field_clean(raw_tag_field)
-        if normalize_audience_tag(rt)
-    }
+def classify_support(tags: List[str], funding_amount) -> List[str]:
+    """High level support categories derived from Meta Tags and funding info."""
+    lower = "; ".join(tags).lower()
+    cats: Set[str] = set()
 
-
-# ---------------------------- Derived columns ----------------------------
-df["__funding_bucket"] = df[COLS["FUNDING"]].apply(funding_bucket)
-
-days_list, date_list = [], []
-for val in df[COLS["LAST_CHECKED"]].tolist():
-    d, ds = days_since(val)
-    days_list.append(d)
-    date_list.append(ds or "")
-df["__fresh_days"] = days_list
-df["__fresh_date"] = date_list
-
-if df[COLS["KEY"]].isna().any():
-    df[COLS["KEY"]] = (
-        df[COLS["PROGRAM_NAME"]]
-        .fillna("")
-        .astype(str)
-        .str.lower()
-        .str.replace(r"[^a-z0-9]+", "", regex=True)
-        + "|"
-        + df[COLS["ORG_NAME"]]
-        .fillna("")
-        .astype(str)
-        .str.lower()
-        .str.replace(r"[^a-z0-9]+", "", regex=True)
+    has_funding_text = any(
+        k in lower
+        for k in [
+            "grant",
+            "loan",
+            "flexloan",
+            "microloan",
+            "micro-loan",
+            "fund",
+            "financing",
+            "capital",
+            "tax",
+            "credit",
+            "equity",
+            "voucher",
+            "rebate",
+        ]
     )
+    has_funding_amount = isinstance(funding_amount, str) and funding_amount.strip()
 
-df["__activity_norm_set"] = (
-    df[COLS["TAGS"]].fillna("").astype(str).apply(row_activity_norm_set)
-)
-df["__stage_norm_set"] = (
-    df[COLS["TAGS"]].fillna("").astype(str).apply(row_stage_norm_set)
-)
-df["__fund_type_set"] = (
-    df[COLS["TAGS"]].fillna("").astype(str).apply(detect_funding_types_from_tags)
-)
-df["__audience_norm_set"] = (
-    df[COLS["TAGS"]].fillna("").astype(str).apply(row_audience_norm_set)
-)
+    if has_funding_text or has_funding_amount:
+        cats.add("Funding and financial supports")
 
-STAGE_CANON_CHOICES = [
-    "Startup / Early Stage",
-    "Growth / Scale",
-    "Mature / Established",
-]
+    if any(
+        k in lower
+        for k in ["advisory", "consulting", "coaching", "mentor", "mentorship"]
+    ):
+        cats.add("Advisory, coaching, and mentorship")
 
-# ---------------------------- Sidebar filters intro ----------------------------
-st.sidebar.header("Filters")
-st.sidebar.caption(
-    "Use these filters to narrow down programs by funding, audience, stage, business supports and region."
-)
+    if any(
+        k in lower
+        for k in [
+            "training",
+            "workshop",
+            "workshops",
+            "course",
+            "bootcamp",
+            "learning",
+            "education",
+        ]
+    ):
+        cats.add("Training and workshops")
 
-REGION_CHOICES = ["Calgary", "Edmonton", "Rural Alberta", "Canada"]
-FUNDING_TYPE_CHOICES = [
-    "Grant",
-    "Loan",
-    "Financing",
-    "Subsidy",
-    "Tax Credit",
-    "Rebate",
-    "Credit",
-    "Equity Investment",
-]
-FUND_AMOUNT_CHOICES = [
-    "Under 5K",
-    "5K–25K",
-    "25K–100K",
-    "100K–500K",
-    "500K+",
-    "Unknown / Not stated",
-]
+    if any(
+        k in lower
+        for k in ["networking", "community", "peer", "association", "event"]
+    ):
+        cats.add("Networking and peer support")
 
-FUZZY_THR = 70
+    if any(k in lower for k in ["accelerator", "incubator", "pre-accelerator", "cohort"]):
+        cats.add("Accelerators, incubators, and cohorts")
 
-REGION_MATCH_TABLE = {
-    "Calgary": ["calgary", "southern alberta", "foothills"],
-    "Edmonton": ["edmonton", "capital region", "central alberta"],
-    "Rural Alberta": [
-        "rural",
-        "north",
-        "northern alberta",
-        "east central",
-        "south",
-        "southern alberta",
-        "central alberta",
-        "mountain view",
-        "parkland",
-    ],
-    "Canada": ["canada", "national", "federal", "pan-canadian", "international"],
-}
+    if any(k in lower for k in ["export", "market", "canexport", "international"]):
+        cats.add("Export and market access")
+
+    if any(k in lower for k in ["innovation", "r&d", "research", "technology", "ip"]):
+        cats.add("Innovation, R&D, and technology")
+
+    if not cats:
+        cats.add("General business supports")
+
+    return sorted(cats)
 
 
-def region_match(region_value: str, selected: str) -> bool:
-    if not selected or selected == "All Regions":
-        return True
-    if not isinstance(region_value, str):
-        return False
-    v = region_value.lower()
-    return any(word in v for word in REGION_MATCH_TABLE.get(selected, []))
+def classify_audience(tags: List[str]) -> List[str]:
+    lower = "; ".join(tags).lower()
+    cats: Set[str] = set()
+
+    if any(k in lower for k in ["women", "woman", "female", "women-owned"]):
+        cats.add("Women and women-led businesses")
+    if "indigenous" in lower or "first nation" in lower or "metis" in lower or "inuit" in lower:
+        cats.add("Indigenous entrepreneurs")
+    if "youth" in lower or "student" in lower:
+        cats.add("Youth and students")
+    if "newcomer" in lower or "immigrant" in lower or "refugee" in lower:
+        cats.add("Newcomers and immigrants")
+    if "rural" in lower or "northern" in lower:
+        cats.add("Rural and northern businesses")
+    if "black" in lower:
+        cats.add("Black entrepreneurs")
+    if "francophone" in lower:
+        cats.add("Francophone entrepreneurs")
+
+    if not cats:
+        cats.add("All small businesses")
+
+    return sorted(cats)
 
 
-def count_by_option(series_of_sets: pd.Series):
-    freq: dict[str, int] = {}
-    for S in series_of_sets:
-        for v in S:
-            freq[v] = freq.get(v, 0) + 1
-    return freq
+def classify_region(raw) -> List[str]:
+    if not isinstance(raw, str):
+        return ["Location not specified"]
+    s = raw.lower().strip()
+
+    if "canada" in s and "international" in s:
+        return ["Canada - export and international"]
+    if s == "canada":
+        return ["Anywhere in Canada"]
+    if "rural" in s:
+        return ["Rural Alberta"]
+    if "siksika" in s:
+        return ["Indigenous community - Siksika, AB"]
+    if "edmonton" in s or "calgary" in s:
+        return ["Edmonton and Calgary region"]
+    if "alberta" in s:
+        return ["Alberta-wide"]
+    return [raw]
 
 
-def fuzzy_mask(df_in, q_text, threshold=70):
-    if not q_text:
-        return pd.Series([True] * len(df_in), index=df_in.index)
-    cols = [
-        COLS["PROGRAM_NAME"],
-        COLS["ORG_NAME"],
-        COLS["DESC"],
-        COLS["ELIG"],
-        COLS["TAGS"],
+def derive_funding_types_from_tags(tags: List[str]) -> Set[str]:
+    types: Set[str] = set()
+    for tag in tags:
+        t = tag.lower()
+        if "grant" in t:
+            types.add("Grant")
+        if any(x in t for x in ["loan", "microloan", "micro-loan", "flexloan"]):
+            types.add("Loan")
+        if "tax credit" in t or (("tax" in t) and ("credit" in t)):
+            types.add("Tax credit")
+        if "voucher" in t or "rebate" in t:
+            types.add("Voucher or rebate")
+        if "equity" in t or "investment" in t:
+            types.add("Equity or investment")
+        if "financing" in t and not types:
+            types.add("Other financing")
+    return types
+
+
+# ---------------------- DATA LOADING ----------------------
+
+
+def load_data(path: str) -> Tuple[pd.DataFrame, Dict[str, str]]:
+    if not os.path.exists(path):
+        raise FileNotFoundError(f"Data file not found: {path}")
+    if path.lower().endswith(".xlsx"):
+        df = pd.read_excel(path)
+    else:
+        df = pd.read_csv(path)
+
+    df.columns = [str(c).strip() for c in df.columns]
+    col_map = infer_columns(df)
+
+    required = [
+        "PROGRAM_NAME",
+        "ORGANIZATION",
+        "DESCRIPTION",
+        "ELIGIBILITY",
+        "WEBSITE",
+        "EMAIL",
+        "PHONE",
+        "REGION",
+        "FUNDING",
+        "STATUS",
+        "LAST_CHECKED",
+        "META_TAGS",
+        "KEY",
     ]
-    blobs = df_in[cols].fillna("").astype(str).agg(" ".join, axis=1).str.lower()
-    return blobs.apply(lambda blob: fuzz.partial_ratio(q_text.lower(), blob) >= threshold)
+    for key in required:
+        col_name = col_map.get(key, "")
+        if not col_name or col_name not in df.columns:
+            col_name = f"__missing_{key}"
+            df[col_name] = ""
+            col_map[key] = col_name
+
+    # Derived funding bucket
+    df["__funding_bucket"] = df[col_map["FUNDING"]].apply(funding_bucket)
+
+    # Last checked metrics
+    days_list, date_list = [], []
+    for val in df[col_map["LAST_CHECKED"]].tolist():
+        d, ds = days_since(val)
+        days_list.append(d)
+        date_list.append(ds or "")
+    df["__fresh_days"] = days_list
+    df["__fresh_date"] = date_list
+
+    # Stable key
+    if df[col_map["KEY"]].isna().any():
+        df[col_map["KEY"]] = (
+            df[col_map["PROGRAM_NAME"]]
+            .fillna("")
+            .astype(str)
+            .str.slice(0, 80)
+            + "-"
+            + df.index.astype(str)
+        )
+
+    # Meta tags list
+    df["__tags_list"] = df[col_map["META_TAGS"]].apply(parse_tags_field_clean)
+
+    # High level support categories, audience, and region categories
+    df["__support_cats"] = [
+        classify_support(tags, fa)
+        for tags, fa in zip(df["__tags_list"], df[col_map["FUNDING"]])
+    ]
+    df["__audience_cats"] = df["__tags_list"].apply(classify_audience)
+    df["__region_cats"] = df[col_map["REGION"]].apply(classify_region)
+
+    # Funding type set
+    df["__fund_type_set"] = df["__tags_list"].apply(derive_funding_types_from_tags)
+
+    return df, col_map
 
 
-def filtered_except(
-    df_in,
-    q_text,
-    selected_regions,
-    selected_ftypes,
-    selected_famts,
-    selected_stage,
-    selected_activity,
-    selected_audience,
-    *,
-    except_dim,
-):
-    out = df_in.copy()
-    if q_text:
-        out = out[fuzzy_mask(out, q_text, threshold=FUZZY_THR)]
-    if except_dim != "region" and selected_regions:
-        col = out[COLS["REGION"]].astype(str)
-        out = out[col.apply(lambda v: any(region_match(v, r) for r in selected_regions))]
-    if except_dim != "famt" and selected_famts:
-        out = out[out["__funding_bucket"].isin(selected_famts)]
-    if except_dim != "ftype" and selected_ftypes:
-        out = out[out["__fund_type_set"].apply(lambda s: bool(s & selected_ftypes))]
-    if except_dim != "stage" and selected_stage:
-        out = out[out["__stage_norm_set"].apply(lambda s: bool(s & selected_stage))]
-    if except_dim != "activity" and selected_activity:
-        out = out[out["__activity_norm_set"].apply(lambda s: bool(s & selected_activity))]
-    if except_dim != "audience" and selected_audience:
-        out = out[out["__audience_norm_set"].apply(lambda s: bool(s & selected_audience))]
-    return out
+# ---------------------- SEARCH & FILTER LOGIC ----------------------
 
 
-# ---------------------------- Search & gather ----------------------------
-q = st.text_input(
-    "🔍 Search programs",
-    "",
-    key="q",
-    placeholder="Try 'grant', 'mentorship', or 'startup'...",
-)
-st.caption(
-    "Tip: Search matches similar terms (e.g., typing mentor finds mentorship)."
-)
+def fuzzy_mask(df: pd.DataFrame, query: str, threshold: int = FUZZY_THR) -> pd.Series:
+    if not query:
+        return pd.Series(True, index=df.index)
+    q = sanitize_text_keep_smart(query).lower()
+    if not q:
+        return pd.Series(True, index=df.index)
 
-all_activity_norm = sorted({v for S in df["__activity_norm_set"] for v in S})
-raw_stage_norm = {v for S in df["__stage_norm_set"] for v in S}
-all_stage_norm = sorted(raw_stage_norm)
-stage_options = sorted(set(all_stage_norm) | set(STAGE_CANON_CHOICES))
-all_audience_norm = sorted({v for S in df["__audience_norm_set"] for v in S})
+    fields = [
+        COLS["PROGRAM_NAME"],
+        COLS["ORGANIZATION"],
+        COLS["DESCRIPTION"],
+        COLS["ELIGIBILITY"],
+    ]
+    scores = []
+    for col in fields:
+        col_vals = df[col].fillna("").astype(str).str.lower().tolist()
+        col_scores = [fuzz.partial_ratio(q, v) for v in col_vals]
+        scores.append(col_scores)
 
-# Read existing sidebar state (before recomputing counts)
-selected_regions = {
-    opt for opt in REGION_CHOICES if st.session_state.get(f"region_{opt}")
-}
-selected_ftypes = {
-    opt for opt in FUNDING_TYPE_CHOICES if st.session_state.get(f"ftype_{opt}")
-}
-selected_famts = {
-    opt for opt in FUND_AMOUNT_CHOICES if st.session_state.get(f"famt_{opt}")
-}
-selected_stage = {
-    opt for opt in stage_options if st.session_state.get(f"stage_{opt}")
-}
-selected_activity = {
-    opt for opt in all_activity_norm if st.session_state.get(f"activity_{opt}")
-}
-selected_audience = {
-    opt for opt in all_audience_norm if st.session_state.get(f"audience_{opt}")
-}
+    arr = np.array(scores)
+    best = arr.max(axis=0)
+    return pd.Series(best >= threshold, index=df.index)
 
-df_except_region = filtered_except(
-    df,
-    q,
-    selected_regions,
-    selected_ftypes,
-    selected_famts,
-    selected_stage,
-    selected_activity,
-    selected_audience,
-    except_dim="region",
-)
-df_except_ftype = filtered_except(
-    df,
-    q,
-    selected_regions,
-    selected_ftypes,
-    selected_famts,
-    selected_stage,
-    selected_activity,
-    selected_audience,
-    except_dim="ftype",
-)
-df_except_famt = filtered_except(
-    df,
-    q,
-    selected_regions,
-    selected_ftypes,
-    selected_famts,
-    selected_stage,
-    selected_activity,
-    selected_audience,
-    except_dim="famt",
-)
-df_except_stage = filtered_except(
-    df,
-    q,
-    selected_regions,
-    selected_ftypes,
-    selected_famts,
-    selected_stage,
-    selected_activity,
-    selected_audience,
-    except_dim="stage",
-)
-df_except_activity = filtered_except(
-    df,
-    q,
-    selected_regions,
-    selected_ftypes,
-    selected_famts,
-    selected_stage,
-    selected_activity,
-    selected_audience,
-    except_dim="activity",
-)
-df_except_audience = filtered_except(
-    df,
-    q,
-    selected_regions,
-    selected_ftypes,
-    selected_famts,
-    selected_stage,
-    selected_activity,
-    selected_audience,
-    except_dim="audience",
-)
 
-region_counts = {
-    r: int(
-        df_except_region[COLS["REGION"]]
-        .astype(str)
-        .apply(lambda v, r=r: region_match(v, r))
-        .sum()
+def apply_filters(df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, List[str]]]:
+    q = st.session_state.get("search_q", "")
+    mask = fuzzy_mask(df, q, threshold=FUZZY_THR)
+
+    active_filters: Dict[str, List[str]] = {}
+
+    def multi_select_filter(session_key: str, data_field: str):
+        vals = st.session_state.get(session_key, [])
+        if vals:
+            active_filters[session_key] = vals
+
+            def fn(row):
+                row_tags = row.get(data_field, [])
+                return any(v in row_tags for v in vals)
+
+            return df.apply(fn, axis=1)
+        return pd.Series(True, index=df.index)
+
+    mask_support = multi_select_filter("filter_support", "__support_cats")
+    mask_audience = multi_select_filter("filter_audience", "__audience_cats")
+    mask_region = multi_select_filter("filter_region", "__region_cats")
+
+    # Funding amount buckets
+    funding_vals = st.session_state.get("filter_funding_bucket", [])
+    if funding_vals:
+        active_filters["filter_funding_bucket"] = funding_vals
+        mask_funding = df["__funding_bucket"].isin(funding_vals)
+    else:
+        mask_funding = pd.Series(True, index=df.index)
+
+    # Funding types (grants, loans, etc.)
+    fund_type_vals = st.session_state.get("filter_funding_type", [])
+    if fund_type_vals:
+        active_filters["filter_funding_type"] = fund_type_vals
+
+        def ftype(row):
+            tags = row.get("__fund_type_set", set())
+            return any(v in tags for v in fund_type_vals)
+
+        mask_ftype = df.apply(ftype, axis=1)
+    else:
+        mask_ftype = pd.Series(True, index=df.index)
+
+    overall = (
+        mask
+        & mask_support
+        & mask_audience
+        & mask_region
+        & mask_funding
+        & mask_ftype
     )
-    for r in REGION_CHOICES
-}
-ftype_counts = {
-    f: int(df_except_ftype["__fund_type_set"].apply(lambda s, f=f: f in s).sum())
-    for f in FUNDING_TYPE_CHOICES
-}
-famt_counts = df_except_famt["__funding_bucket"].value_counts().to_dict()
-stage_counts = count_by_option(df_except_stage["__stage_norm_set"])
-activity_counts = count_by_option(df_except_activity["__activity_norm_set"])
-audience_counts = count_by_option(df_except_audience["__audience_norm_set"])
-
-
-# ------------ Pill-based filter helpers ------------
-def render_filter_pills(label, options, counts, state_prefix):
-    picked = set()
-    st.sidebar.markdown(f"### {label}")
-
-    if st.sidebar.button("Clear", key=f"clear_{state_prefix}"):
-        for opt in options:
-            st.session_state[f"{state_prefix}_{opt}"] = False
-
-    for opt in options:
-        c = counts.get(opt, 0)
-        disabled = c == 0
-        state_key = f"{state_prefix}_{opt}"
-        active = st.session_state.get(state_key, False)
-        btn_type = "primary" if active and not disabled else "secondary"
-        label_text = f"{opt} ({c})"
-
-        clicked = st.sidebar.button(
-            label_text,
-            key=f"pill_{state_prefix}_{opt}",
-            disabled=disabled,
-            type=btn_type,
-        )
-
-        if clicked and not disabled:
-            st.session_state[state_key] = not active
-            active = st.session_state[state_key]
-
-        if active and not disabled:
-            picked.add(opt)
-
-    return picked
-
-
-def render_funding_type_pills(label, options, counts, state_prefix="ftype"):
-    picked = set()
-
-    header_cols = st.sidebar.columns([4, 1])
-    with header_cols[0]:
-        st.sidebar.markdown(f"### {label}")
-    with header_cols[1]:
-        info_clicked = st.sidebar.button(
-            "ℹ️", key=f"info_{state_prefix}", help="About funding types"
-        )
-
-    show_help_key = f"show_help_{state_prefix}"
-    if info_clicked:
-        st.session_state[show_help_key] = not st.session_state.get(show_help_key, False)
-
-    if st.session_state.get(show_help_key, False):
-        st.sidebar.info(
-            "Use funding type to choose the broad kind of financial support you're interested in.\n\n"
-            "- Grants and rebates usually do not need to be repaid.\n"
-            "- Loans, financing and credit involve repayment.\n"
-            "- Tax credits reduce taxes payable when you meet conditions.\n"
-            "- Equity investments provide capital in exchange for ownership."
-        )
-
-    if st.sidebar.button("Clear", key=f"clear_{state_prefix}"):
-        for opt in options:
-            st.session_state[f"{state_prefix}_{opt}"] = False
-
-    for opt in options:
-        c = counts.get(opt, 0)
-        disabled = c == 0
-        state_key = f"{state_prefix}_{opt}"
-        active = st.session_state.get(state_key, False)
-        btn_type = "primary" if active and not disabled else "secondary"
-        label_text = f"{opt} ({c})"
-
-        clicked = st.sidebar.button(
-            label_text,
-            key=f"pill_{state_prefix}_{opt}",
-            disabled=disabled,
-            type=btn_type,
-        )
-
-        if clicked and not disabled:
-            st.session_state[state_key] = not active
-            active = st.session_state[state_key]
-
-        if active and not disabled:
-            picked.add(opt)
-            desc = FUNDING_TYPE_DESCRIPTIONS.get(opt, "")
-            if desc:
-                st.sidebar.caption(desc)
-
-    return picked
+    return df[overall].copy(), active_filters
 
 
 def clear_all_filters():
-    for k in list(st.session_state.keys()):
-        if any(
-            k.startswith(prefix)
-            for prefix in (
-                "region_",
-                "ftype_",
-                "famt_",
-                "stage_",
-                "activity_",
-                "audience_",
+    for key in [
+        "filter_support",
+        "filter_funding_type",
+        "filter_funding_bucket",
+        "filter_audience",
+        "filter_region",
+    ]:
+        st.session_state[key] = []
+
+
+def render_filter_pills(
+    label: str,
+    help_text: str,
+    options: List[Tuple[str, str]],
+    session_key: str,
+):
+    """Pill style filters that store clean values but display labels with counts."""
+    with st.container():
+        st.markdown(
+            f"<div class='sidebar-section'><h3>{label}</h3><small>{help_text}</small></div>",
+            unsafe_allow_html=True,
+        )
+        if session_key not in st.session_state:
+            st.session_state[session_key] = []
+        selected = set(st.session_state[session_key])
+
+        cols = st.columns(2)
+        for i, (value, label_text) in enumerate(options):
+            col = cols[i % 2]
+            with col:
+                btn_label = label_text
+                is_on = value in selected
+                if st.button(btn_label, key=f"{session_key}_{value}"):
+                    if is_on:
+                        selected.remove(value)
+                    else:
+                        selected.add(value)
+                    st.session_state[session_key] = sorted(selected)
+                    st.experimental_rerun()
+
+        if selected:
+            if st.button("Clear", key=f"clear_{session_key}"):
+                st.session_state[session_key] = []
+                st.experimental_rerun()
+
+
+def render_funding_type_pills(options: List[Tuple[str, str]]):
+    render_filter_pills(
+        label="What kind of funding are you looking for?",
+        help_text="For example, grants, loans, tax credits, vouchers, or equity investment.",
+        options=options,
+        session_key="filter_funding_type",
+    )
+
+
+def render_chips(active_filters: Dict[str, List[str]]):
+    if not active_filters:
+        return
+    st.markdown("<div class='chips-row'>", unsafe_allow_html=True)
+    for key, vals in active_filters.items():
+        for val in vals:
+            if key == "filter_support":
+                prefix = "Support:"
+            elif key == "filter_funding_type":
+                prefix = "Funding type:"
+            elif key == "filter_funding_bucket":
+                prefix = "Funding amount:"
+            elif key == "filter_audience":
+                prefix = "Audience:"
+            elif key == "filter_region":
+                prefix = "Region:"
+            else:
+                prefix = ""
+            label = f"{prefix} {val}" if prefix else val
+
+            col1, col2 = st.columns([0.9, 0.1])
+            with col1:
+                st.markdown(
+                    f"<span class='chip'>{label}</span>", unsafe_allow_html=True
+                )
+            with col2:
+                if st.button("x", key=f"chip_{key}_{val}"):
+                    cur = set(st.session_state.get(key, []))
+                    if val in cur:
+                        cur.remove(val)
+                        st.session_state[key] = sorted(cur)
+                        st.experimental_rerun()
+    st.markdown("</div>", unsafe_allow_html=True)
+
+
+# ---------------------- MAIN APP ----------------------
+
+
+def main():
+    global COLS
+
+    st.set_page_config(page_title="Small Business Supports Finder", layout="wide")
+    embed_css()
+    embed_logo_html()
+
+    data_path = "Pathfinding_Master.xlsx"
+    df, col_map = load_data(data_path)
+    COLS = col_map
+
+    # Hero section
+    st.markdown("## Find programs and supports for your Alberta business")
+
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.markdown(
+            """1. **Choose filters**  
+Pick your location, support type, audience, funding needs, and more."""
+        )
+    with col2:
+        st.markdown(
+            """2. **Browse matching programs**  
+Scroll through cards that match your selections."""
+        )
+    with col3:
+        st.markdown(
+            """3. **Take action**  
+Use the website, email, phone, and favourite options to connect or save programs."""
+        )
+
+    if "favorites" not in st.session_state:
+        st.session_state.favorites = set()
+
+    col_search, col_sort, col_page = st.columns([3, 1, 1])
+    with col_search:
+        st.text_input(
+            "Search programs",
+            key="search_q",
+            placeholder="Search by keyword, program name, organization, or description",
+        )
+    with col_sort:
+        sort_by = st.selectbox(
+            "Sort results by",
+            ["Relevance", "Program name A to Z", "Most recently checked"],
+            index=0,
+        )
+    with col_page:
+        per_page = st.selectbox("Results per page", [10, 25, 50], index=1)
+
+    st.markdown(
+        "<p class='results-summary'>Tip: Search also matches similar terms and common spellings, not just exact words.</p>",
+        unsafe_allow_html=True,
+    )
+
+    # Build option lists with counts from the actual data
+    support_counts = Counter()
+    for cats in df["__support_cats"]:
+        support_counts.update(cats)
+    support_options = [
+        (name, f"{name} ({support_counts[name]})")
+        for name in sorted(support_counts.keys())
+    ]
+
+    audience_counts = Counter()
+    for cats in df["__audience_cats"]:
+        audience_counts.update(cats)
+    audience_options = [
+        (name, f"{name} ({audience_counts[name]})")
+        for name in sorted(audience_counts.keys())
+    ]
+
+    region_counts = Counter()
+    for cats in df["__region_cats"]:
+        region_counts.update(cats)
+    region_options = [
+        (name, f"{name} ({region_counts[name]})")
+        for name in sorted(region_counts.keys())
+    ]
+
+    bucket_counts = Counter(df["__funding_bucket"].tolist())
+    funding_bucket_values = [
+        "Under 5K",
+        "5K to 25K",
+        "25K to 100K",
+        "100K to 500K",
+        "Over 500K",
+        UNKNOWN,
+    ]
+    funding_bucket_options = [
+        (
+            b,
+            f"{add_dollar_signs(b) if b != UNKNOWN else 'Unknown / not stated'} ({bucket_counts.get(b, 0)})",
+        )
+        for b in funding_bucket_values
+        if bucket_counts.get(b, 0) > 0
+    ]
+
+    fund_type_counts = Counter()
+    for s in df["__fund_type_set"]:
+        fund_type_counts.update(s)
+    funding_type_values = [
+        "Grant",
+        "Loan",
+        "Tax credit",
+        "Voucher or rebate",
+        "Equity or investment",
+        "Other financing",
+    ]
+    funding_type_options = [
+        (t, f"{t} ({fund_type_counts.get(t, 0)})")
+        for t in funding_type_values
+        if fund_type_counts.get(t, 0) > 0
+    ]
+
+    with st.sidebar:
+        st.header("Filter programs")
+        if st.button("Clear all filters"):
+            clear_all_filters()
+            st.experimental_rerun()
+
+        render_filter_pills(
+            "What type of business support do you need?",
+            "You can select more than one.",
+            support_options,
+            "filter_support",
+        )
+
+        if funding_type_options:
+            render_funding_type_pills(funding_type_options)
+
+        if funding_bucket_options:
+            render_filter_pills(
+                "How much funding are you looking for?",
+                "These bands are based on information available for each program.",
+                funding_bucket_options,
+                "filter_funding_bucket",
             )
-        ):
-            st.session_state[k] = False
-    st.session_state["page_idx"] = 0
 
+        render_filter_pills(
+            "Who is this support for?",
+            "",
+            audience_options,
+            "filter_audience",
+        )
 
-if st.sidebar.button("Clear all filters", key="clear_all_top"):
-    clear_all_filters()
-    st.rerun()
+        render_filter_pills(
+            "Where is your business located?",
+            "",
+            region_options,
+            "filter_region",
+        )
 
-# Filters in recommended order
-sel_activity = render_filter_pills(
-    "What type of business support do you need?",
-    all_activity_norm,
-    activity_counts,
-    "activity",
-)
+    filtered, active_filters = apply_filters(df)
+    total = len(filtered)
+    if total == 0:
+        st.info(
+            "No programs match your current filters. Try clearing filters or broadening your search."
+        )
+        close_shell()
+        return
 
-sel_ftypes = render_funding_type_pills(
-    "What kind of funding are you looking for?",
-    FUNDING_TYPE_CHOICES,
-    ftype_counts,
-    "ftype",
-)
+    if sort_by == "Program name A to Z":
+        name_col = COLS["PROGRAM_NAME"]
+        filtered = filtered.sort_values(by=name_col, na_position="last")
+    elif sort_by == "Most recently checked":
+        filtered = filtered.sort_values("__fresh_days", ascending=True)
 
-sel_famts = render_filter_pills(
-    "How much funding are you looking for?", FUND_AMOUNT_CHOICES, famt_counts, "famt"
-)
+    page = st.session_state.get("page", 1)
+    max_page = max(1, (total + per_page - 1) // per_page)
+    page = max(1, min(page, max_page))
+    start = (page - 1) * per_page
+    end = start + per_page
 
-sel_stage = render_filter_pills(
-    "What stage is your business at?", stage_options, stage_counts, "stage"
-)
-
-sel_audience = render_filter_pills(
-    "Who is this support for?", all_audience_norm, audience_counts, "audience"
-)
-
-sel_regions = render_filter_pills(
-    "Where is your business located?", REGION_CHOICES, region_counts, "region"
-)
-
-selected_regions, selected_ftypes, selected_famts = (
-    sel_regions,
-    sel_ftypes,
-    sel_famts,
-)
-selected_stage, selected_activity, selected_audience = (
-    sel_stage,
-    sel_activity,
-    sel_audience,
-)
-
-if st.sidebar.button("Clear all filters", key="clear_all_bottom"):
-    clear_all_filters()
-    st.rerun()
-
-# ---------------------------- Apply filters ----------------------------
-def apply_filters(df_in: pd.DataFrame) -> pd.DataFrame:
-    out = df_in.copy()
-    out = out[fuzzy_mask(out, q, threshold=FUZZY_THR)]
-    if selected_regions and COLS["REGION"] in out.columns:
-        col = out[COLS["REGION"]].astype(str)
-        out = out[col.apply(lambda v: any(region_match(v, r) for r in selected_regions))]
-    if selected_famts:
-        out = out[out["__funding_bucket"].isin(selected_famts)]
-    if selected_ftypes:
-        out = out[out["__fund_type_set"].apply(lambda s: bool(s & selected_ftypes))]
-    if selected_stage:
-        out = out[out["__stage_norm_set"].apply(lambda s: bool(s & selected_stage))]
-    if selected_activity:
-        out = out[out["__activity_norm_set"].apply(lambda s: bool(s & selected_activity))]
-    if selected_audience:
-        out = out[out["__audience_norm_set"].apply(lambda s: bool(s & selected_audience))]
-    return out
-
-
-filtered = apply_filters(df)
-
-# ---------------------------- Sort controls & page size ----------------------------
-sort_col, page_col = st.columns([0.6, 0.4])
-with sort_col:
-    sort_mode = st.selectbox(
-        "Sort results by",
-        ["Relevance", "Program Name (A–Z)", "Last Checked (newest)"],
-        index=0,
-        help="Relevance uses fuzzy keyword matching across program name, description and tags.",
-    )
-with page_col:
-    page_size = st.selectbox(
-        "Results per page",
-        [10, 25, 50],
-        index=1,
-        help="Change how many programs appear on each page of results.",
+    st.markdown(
+        f"<p class='results-summary'>{total} programs found. Showing {start+1}-{min(end, total)} of {total}.</p>",
+        unsafe_allow_html=True,
     )
 
+    render_chips(active_filters)
 
-def sort_df(dfin: pd.DataFrame) -> pd.DataFrame:
-    if sort_mode == "Program Name (A–Z)":
-        return dfin.sort_values(
-            COLS["PROGRAM_NAME"],
-            na_position="last",
-            kind="mergesort",
-        )
-    if sort_mode == "Last Checked (newest)":
-        tmp = dfin.copy()
-        tmp["__dt"] = pd.to_datetime(tmp[COLS["LAST_CHECKED"]], errors="coerce")
-        tmp = tmp.sort_values(
-            "__dt",
-            ascending=False,
-            na_position="last",
-            kind="mergesort",
-        )
-        return tmp.drop(columns="__dt")
-    return dfin
-
-
-filtered = sort_df(filtered)
-
-st.markdown(f"### {len(filtered)} Programs Found")
-
-# ---------------------------- Chips (pill buttons with x) ----------------------------
-def render_chips():
-    """
-    Show active filters as pill-style buttons.
-    Clicking a pill clears only that specific filter.
-    """
-    any_chip = False
-
-    # Marker so CSS can target this container's buttons
-    st.markdown("<div class='chip-row-marker'></div>", unsafe_allow_html=True)
-
-    def chip(label: str, key_suffix: str, clear_fn):
-        nonlocal any_chip
-        any_chip = True
-        clicked = st.button(
-            label + " x",
-            key=f"chip_{key_suffix}",
-        )
-        if clicked:
-            clear_fn()
-            st.session_state["page_idx"] = 0
-            st.rerun()
-
-    if q:
-        chip(f"Search: {q}", "search", lambda: st.session_state.update({"q": ""}))
-
-    for f in sorted(selected_ftypes):
-        chip(
-            f"Funding Type: {f}",
-            f"ftype_{f}",
-            lambda f=f: st.session_state.update({f"ftype_{f}": False}),
-        )
-
-    for b in sorted(selected_famts):
-        chip(
-            f"Amount: {b}",
-            f"famt_{b}",
-            lambda b=b: st.session_state.update({f"famt_{b}": False}),
-        )
-
-    for au in sorted(selected_audience):
-        chip(
-            f"Audience: {au}",
-            f"audience_{au}",
-            lambda au=au: st.session_state.update({f"audience_{au}": False}),
-        )
-
-    for s in sorted(selected_stage):
-        chip(
-            f"Stage: {s}",
-            f"stage_{s}",
-            lambda s=s: st.session_state.update({f"stage_{s}": False}),
-        )
-
-    for a in sorted(selected_activity):
-        chip(
-            f"Business Supports: {a}",
-            f"activity_{a}",
-            lambda a=a: st.session_state.update({f"activity_{a}": False}),
-        )
-
-    for r in sorted(selected_regions):
-        chip(
-            f"Region: {r}",
-            f"region_{r}",
-            lambda r=r: st.session_state.update({f"region_{r}": False}),
-        )
-
-    if any_chip:
-        st.markdown("<div style='height:6px;'></div>", unsafe_allow_html=True)
-
-
-render_chips()
-
-# ---------------------------- Export ----------------------------
-csv_bytes = filtered.to_csv(index=False).encode("utf-8")
-st.download_button(
-    "Download results (CSV)",
-    csv_bytes,
-    file_name="pathfinding_results.csv",
-    mime="text/csv",
-)
-
-# ---------------------------- Results (role=main) ----------------------------
-if "favorites" not in st.session_state:
-    st.session_state.favorites = set()
-
-UNKNOWN = "unknown / not stated"
-
-total = len(filtered)
-if "page_idx" not in st.session_state:
-    st.session_state.page_idx = 0
-max_page = max(0, (total - 1) // page_size)
-page = min(st.session_state.page_idx, max_page)
-start = page * page_size
-end = min(start + page_size, total)
-if total > 0:
-    st.caption(f"Showing {start + 1}-{end} of {total}")
-
-prev_col, _, next_col = st.columns([0.1, 0.8, 0.1])
-with prev_col:
-    if st.button("◀ Prev", disabled=page == 0, type="primary"):
-        st.session_state.page_idx = max(0, page - 1)
-        st.rerun()
-with next_col:
-    if st.button("Next ▶", disabled=page >= max_page, type="primary"):
-        st.session_state.page_idx = min(max_page, page + 1)
-        st.rerun()
-
-st.markdown(
-    '<div id="results-main" role="main" class="goa-searchresults"></div>',
-    unsafe_allow_html=True,
-)
-
-if total == 0:
-    st.info(
-        "No programs match your current filters. Try clearing filters or broadening your search."
-    )
-else:
     subset = filtered.iloc[start:end].copy()
     for i, (_, row) in enumerate(subset.iterrows(), 1):
         name = str(row[COLS["PROGRAM_NAME"]] or "")
-        org = str(row[COLS["ORG_NAME"]] or "")
-        status_raw = str(row[COLS["STATUS"]] or "")
-        s_low = (status_raw or "").lower()
-
-        badge_cls = (
-            "operational"
-            if "operational" in s_low
-            else (
-                "open"
-                if any(
-                    k in s_low
-                    for k in ["open", "active", "ongoing", "accepting", "rolling"]
-                )
-                else "closed"
-            )
-        )
-        badge_label = status_raw or (
-            "Operational"
-            if badge_cls == "operational"
-            else ("Open" if badge_cls == "open" else "Closed / Paused")
-        )
-
-        # Description (strip placeholder text)
-        raw_desc = str(row[COLS["DESC"]] or "").strip()
-        if (
-            raw_desc.strip().lower()
-            == "description pending verification from program website."
-        ):
-            raw_desc = ""
-        desc_full = sanitize_text_keep_smart(raw_desc)
-
-        elig = sanitize_text_keep_smart(str(row[COLS["ELIG"]] or "").strip())
+        org = str(row[COLS["ORGANIZATION"]] or "")
+        desc_full = str(row[COLS["DESCRIPTION"]] or "")
+        status = str(row[COLS["STATUS"]] or "")
         fund_bucket_val = str(row.get("__funding_bucket") or "")
         fund_type_set = row.get("__fund_type_set", set())
         fresh_days = row.get("__fresh_days")
@@ -1471,130 +1125,156 @@ else:
         fresh_label = freshness_label(fresh_days)
 
         website = str(row.get(COLS["WEBSITE"]) or "").strip()
-        email = str(row.get(COLS["EMAIL"]) or "").strip().lower()
+        email_raw = str(row.get(COLS["EMAIL"]) or "").strip()
         phone_raw = str(row.get(COLS["PHONE"]) or "").strip()
 
-        # Hide call when phone is missing or "not publicly listed – use contact page"
         if (
             "not publicly listed" in phone_raw.lower()
             and "contact page" in phone_raw.lower()
         ):
             phone_raw = ""
-
         phone_display_multi = format_phone_multi(phone_raw)
         key = str(row.get(COLS["KEY"], f"k{i}"))
 
-        with st.container():
-            st.markdown("<div class='pf-card-marker'></div>", unsafe_allow_html=True)
+        st.markdown("<div class='pf-card-marker'>", unsafe_allow_html=True)
 
-            # Header: badge + freshness + title + org
+        badge_cls = "badge-open"
+        badge_label = "Operational"
+        if "closed" in status.lower():
+            badge_cls = "badge-closed"
+            badge_label = "Closed"
+        elif "paused" in status.lower():
+            badge_cls = "badge-paused"
+            badge_label = "Paused"
+
+        st.markdown(
+            f"""
+<span class='badge {badge_cls}'>{badge_label}</span>
+<span class='meta'>Last checked: {fresh_date if fresh_date else "Not available"} - {fresh_label}</span>
+""",
+            unsafe_allow_html=True,
+        )
+
+        st.markdown(f"<h3 class='program-title'>{name}</h3>", unsafe_allow_html=True)
+        if org:
             st.markdown(
-                f"""
-                <span class='badge {badge_cls}'>{badge_label}</span>
-                <span class='meta'>Last checked: {fresh_date if fresh_date else '—'}
-                {f"({fresh_label})" if fresh_label != "—" else ""}</span>
-                <div class='title'>{name}</div>
-                <div class='org'>{org}</div>
-                """,
-                unsafe_allow_html=True,
+                f"<div class='program-org'>{org}</div>", unsafe_allow_html=True
             )
 
-            # Description with Show more / Show less
-            render_description(desc_full, key)
+        render_description(desc_full, key)
 
-            # Funding + Eligibility strip
-            fund_label = ""
-            if fund_bucket_val and fund_bucket_val.strip().lower() != UNKNOWN:
-                fund_label = add_dollar_signs(fund_bucket_val)
+        # Funding amount display logic
+        fund_raw = sanitize_text_keep_smart(
+            str(row.get(COLS["FUNDING"]) or "").strip()
+        )
+        fund_label = ""
+        if fund_raw and "$" in fund_raw:
+            fund_label = fund_raw
+        elif fund_bucket_val and fund_bucket_val.strip().lower() != UNKNOWN.lower():
+            fund_label = add_dollar_signs(fund_bucket_val)
 
-            fund_type_label = ""
-            if isinstance(fund_type_set, set) and fund_type_set:
-                fund_type_label = ", ".join(sorted(fund_type_set))
+        fund_type_label = ""
+        if isinstance(fund_type_set, set) and fund_type_set:
+            fund_type_label = ", ".join(sorted(fund_type_set))
 
-            fund_line = (
-                f'<span class="kv"><strong>Funding available:</strong> {fund_label}</span>'
-                if fund_label
-                else ""
+        fund_line = (
+            f'<span class="kv"><strong>Funding available:</strong> {fund_label}</span>'
+            if fund_label
+            else ""
+        )
+        fund_type_line = (
+            f'<span class="kv"><strong>Funding type:</strong> {fund_type_label}</span>'
+            if fund_type_label
+            else ""
+        )
+
+        elig_text = drop_url_like(
+            sanitize_text_keep_smart(str(row.get(COLS["ELIGIBILITY"]) or ""))
+        )
+        elig_line = (
+            f'<span class="kv"><strong>Eligibility highlights:</strong> {elig_text}</span>'
+            if (
+                elig_text
+                and "description pending" not in elig_text.lower()
+                and "see website" not in elig_text.lower()
             )
-            fund_type_line = (
-                f'<span class="kv"><strong>Funding type:</strong> {fund_type_label}</span>'
-                if fund_type_label
-                else ""
-            )
+            else ""
+        )
 
-            elig_line = (
-                f'<span class="kv"><strong>Eligibility highlights:</strong> {elig}</span>'
-                if (
-                    elig
-                    and elig.strip().lower()
-                    not in {"", "unknown / not stated", "n/a", "na"}
-                )
-                else ""
-            )
-
-            meta_html_parts = [x for x in [fund_line, fund_type_line, elig_line] if x]
+        meta_html_parts = [p for p in [fund_line, fund_type_line, elig_line] if p]
+        if meta_html_parts:
+            inner = " ".join(meta_html_parts)
+            meta_html = f'<div class="meta-strip">{inner}</div>'
+        else:
             meta_html = (
-                " ".join(meta_html_parts)
-                or "<span class='placeholder'>No additional details</span>"
+                '<p class="placeholder">Funding, funding type, or eligibility '
+                "details are not available in this view.</p>"
             )
 
-            st.markdown(
-                f"<div class='meta-info'>{meta_html}</div>",
-                unsafe_allow_html=True,
-            )
+        st.markdown(meta_html, unsafe_allow_html=True)
 
-            # Actions row: Website · Email · Call · ☆/★ Favourite (all text-link style)
-            st.markdown("<div class='actions-row'>", unsafe_allow_html=True)
+        # Actions row
+        st.markdown("<div class='actions-row'>", unsafe_allow_html=True)
+        cols_actions = st.columns(4)
+        call_clicked = False
+        fav_clicked = False
 
-            cols_actions = st.columns(4)
-            call_clicked = False
-            fav_clicked = False
+        with cols_actions[0]:
+            if website:
+                url = (
+                    website
+                    if website.startswith(("http://", "https://"))
+                    else f"https://{website}"
+                )
+                st.markdown(f"[Website]({url})", unsafe_allow_html=True)
 
-            # Website
-            with cols_actions[0]:
-                if website:
-                    url = (
-                        website
-                        if website.startswith(("http://", "https://"))
-                        else f"https://{website}"
-                    )
-                    st.markdown(f"[Website]({url})", unsafe_allow_html=True)
-
-            # Email
-            with cols_actions[1]:
-                if email:
-                    st.markdown(f"[Email](mailto:{email})", unsafe_allow_html=True)
-
-            # Call (toggle numbers)
-            with cols_actions[2]:
-                if phone_display_multi:
-                    call_clicked = st.button("Call", key=f"call_{key}")
-
-            # Favourite
-            with cols_actions[3]:
-                fav_on = key in st.session_state.favorites
-                fav_label = "★ Favourite" if fav_on else "☆ Favourite"
-                fav_clicked = st.button(fav_label, key=f"fav_{key}")
-
-            st.markdown("</div>", unsafe_allow_html=True)
-
-            # Toggle phone number display
-            if phone_display_multi:
-                call_state_key = f"show_call_{key}"
-                if call_clicked:
-                    st.session_state[call_state_key] = not st.session_state.get(
-                        call_state_key, False
-                    )
-                if st.session_state.get(call_state_key, False):
+        with cols_actions[1]:
+            email_label, email_href = parse_email_field(email_raw)
+            if email_label:
+                if email_href:
                     st.markdown(
-                        f"<small><strong>Call:</strong> {phone_display_multi}</small>",
+                        f"[{email_label}]({email_href})", unsafe_allow_html=True
+                    )
+                else:
+                    st.markdown(
+                        f"<span class='placeholder'>{email_label}</span>",
                         unsafe_allow_html=True,
                     )
 
-            # Toggle favourites
-            if fav_clicked:
-                if fav_on:
-                    st.session_state.favorites.remove(key)
-                else:
-                    st.session_state.favorites.add(key)
-                st.rerun()
+        with cols_actions[2]:
+            if phone_display_multi:
+                call_clicked = st.button("Show phone number", key=f"call_{key}")
+
+        with cols_actions[3]:
+            fav_on = key in st.session_state.favorites
+            fav_label = "★ Favourite" if fav_on else "☆ Favourite"
+            fav_clicked = st.button(fav_label, key=f"fav_{key}")
+
+        st.markdown("</div>", unsafe_allow_html=True)
+
+        if phone_display_multi:
+            call_state_key = f"show_call_{key}"
+            if call_clicked:
+                st.session_state[call_state_key] = not st.session_state.get(
+                    call_state_key, False
+                )
+            if st.session_state.get(call_state_key, False):
+                st.markdown(
+                    f"<small class='pf-phone-line'><strong>Phone:</strong> {phone_display_multi}</small>",
+                    unsafe_allow_html=True,
+                )
+
+        if fav_clicked:
+            if fav_on:
+                st.session_state.favorites.remove(key)
+            else:
+                st.session_state.favorites.add(key)
+            st.experimental_rerun()
+
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    close_shell()
+
+
+if __name__ == "__main__":
+    main()
