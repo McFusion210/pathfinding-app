@@ -105,7 +105,7 @@ div[data-testid="stTextInput"] input::placeholder{
   border:1px solid #003366;
   padding:16px 16px 14px 16px;
   background:#E6EFF7; /* light Alberta blue */
-  margin-bottom:14px;
+  margin:10px 0 14px 0;
   box-shadow:0 1px 3px rgba(15,23,42,0.10);
 }
 .pf-card-marker:hover{
@@ -191,6 +191,9 @@ h3.program-title{
 }
 
 /* Sidebar sections and pills */
+.sidebar-section{
+  margin-top:6px;
+}
 .sidebar-section h3{
   font-size:14px;
   margin:0 0 4px 0;
@@ -205,11 +208,11 @@ h3.program-title{
   font-size:14px;
 }
 
-/* Sidebar filter pills */
+/* Sidebar filter pills (single-column) */
 div[data-testid="stSidebar"] .stButton > button{
   font-size:12px;
-  padding:6px 10px;
-  margin:4px 3px 0 0;
+  padding:8px 10px;
+  margin:4px 0 0 0;
   border-radius:12px;
   border:1px solid #D1D5DB;
   background:#F9FAFB;
@@ -217,6 +220,7 @@ div[data-testid="stSidebar"] .stButton > button{
   white-space:normal;
   width:100%;
   text-align:left;
+  min-height:40px;
 }
 div[data-testid="stSidebar"] .stButton > button:hover{
   border-color:#9CA3AF;
@@ -235,12 +239,13 @@ div[data-testid="stSidebar"] .stButton > button:focus{
 }
 .chips-row .stButton > button{
   font-size:11px;
-  padding:3px 10px;
+  padding:4px 12px;
   margin:2px 4px 0 0;
   border-radius:999px;
   border:1px solid #D1D5DB;
   background:#E5E7EB;
   color:#374151;
+  text-align:left;
 }
 .chips-row .stButton > button:hover{
   background:#D1D5DB;
@@ -665,9 +670,7 @@ def classify_audience(tags: List[str]) -> List[str]:
 
 
 def classify_stage(tags: List[str]) -> List[str]:
-    """
-    Business stage categories, derived from meta tags.
-    """
+    """Business stage categories, derived from meta tags."""
     lower = "; ".join(tags).lower()
     cats: Set[str] = set()
 
@@ -690,9 +693,7 @@ def classify_stage(tags: List[str]) -> List[str]:
 
 
 def classify_region(raw) -> List[str]:
-    """
-    Region categories for sidebar pills with GoA-friendly labels.
-    """
+    """Region categories for sidebar pills with GoA-friendly labels."""
     if not isinstance(raw, str):
         return ["Location Not Specified"]
     s = raw.lower().strip()
@@ -972,19 +973,17 @@ def render_filter_pills(
             st.session_state[session_key] = []
         selected = set(st.session_state[session_key])
 
-        cols = st.columns(2)
-        for i, (value, label_text) in enumerate(options):
-            col = cols[i % 2]
-            with col:
-                is_on = value in selected
-                btn_label = label_text
-                if st.button(btn_label, key=f"{session_key}_{value}"):
-                    if is_on:
-                        selected.remove(value)
-                    else:
-                        selected.add(value)
-                    st.session_state[session_key] = sorted(selected)
-                    st.rerun()
+        # Single-column layout: each button on its own row
+        for value, label_text in options:
+            is_on = value in selected
+            btn_label = label_text
+            if st.button(btn_label, key=f"{session_key}_{value}"):
+                if is_on:
+                    selected.remove(value)
+                else:
+                    selected.add(value)
+                st.session_state[session_key] = sorted(selected)
+                st.rerun()
 
         if selected:
             if st.button("Clear", key=f"clear_{session_key}"):
@@ -993,14 +992,18 @@ def render_filter_pills(
 
 
 def render_funding_type_pills(options: List[Tuple[str, str]]):
-    help_text = (
-        "Grant – non repayable funding. "
-        "Loan – repayable financing. "
-        "Tax Credit – reduces taxes based on eligible expenses. "
-        "Voucher or Rebate – discounts or partial refunds. "
-        "Equity or Investment – capital in exchange for ownership. "
-        "Other Financing – other financial products."
-    )
+    # Sleeker helper text: short intro + small bullet list of definitions
+    help_text = """
+Choose the type of financial support that best fits what you need.
+<ul style='margin-top:4px; padding-left:18px;'>
+  <li><strong>Grant</strong> – non repayable funding.</li>
+  <li><strong>Loan</strong> – repayable financing with interest.</li>
+  <li><strong>Tax Credit</strong> – reduces taxes based on eligible expenses.</li>
+  <li><strong>Voucher or Rebate</strong> – discounts or partial refunds.</li>
+  <li><strong>Equity or Investment</strong> – capital in exchange for ownership.</li>
+  <li><strong>Other Financing</strong> – other financial products.</li>
+</ul>
+"""
     render_filter_pills(
         label="What kind of funding are you looking for?",
         help_text=help_text,
@@ -1184,6 +1187,15 @@ Use the website, email, phone, and favourite options to connect or save programs
             clear_all_filters()
             st.rerun()
 
+        # 1. Stage
+        render_filter_pills(
+            "Where is your business in its journey?",
+            "Some programs are tailored to certain stages of business.",
+            stage_options,
+            "filter_stage",
+        )
+
+        # 2. Support type
         render_filter_pills(
             "What type of business support do you need?",
             "High level categories of support. You can select more than one.",
@@ -1191,9 +1203,19 @@ Use the website, email, phone, and favourite options to connect or save programs
             "filter_support",
         )
 
+        # 3. Location
+        render_filter_pills(
+            "Where is your business located?",
+            "",
+            region_options,
+            "filter_region",
+        )
+
+        # 4. Funding type (with definitions)
         if funding_type_options:
             render_funding_type_pills(funding_type_options)
 
+        # 5. Funding amount
         if funding_bucket_options:
             render_filter_pills(
                 "How much funding are you looking for?",
@@ -1202,25 +1224,12 @@ Use the website, email, phone, and favourite options to connect or save programs
                 "filter_funding_bucket",
             )
 
+        # 6. Audience
         render_filter_pills(
             "Who is this support for?",
             "",
             audience_options,
             "filter_audience",
-        )
-
-        render_filter_pills(
-            "Where is your business located?",
-            "",
-            region_options,
-            "filter_region",
-        )
-
-        render_filter_pills(
-            "Where is your business in its journey?",
-            "Some programs are tailored to certain stages of business.",
-            stage_options,
-            "filter_stage",
         )
 
     filtered, active_filters = apply_filters(df)
@@ -1302,7 +1311,7 @@ Use the website, email, phone, and favourite options to connect or save programs
 
         render_description(desc_full, key)
 
-        # Funding amount display logic: keep for filters, minimal on cards
+        # Funding amount display logic
         fund_raw = sanitize_text_keep_smart(
             str(row.get(COLS["FUNDING"]) or "").strip()
         )
@@ -1316,7 +1325,6 @@ Use the website, email, phone, and favourite options to connect or save programs
         if isinstance(fund_type_set, set) and fund_type_set:
             fund_type_label = ", ".join(sorted(fund_type_set))
 
-        # Hide explicit "Funding available" line unless we have something meaningful
         if fund_label:
             fund_line = f'<span class="kv"><strong>Funding available:</strong> {fund_label}</span>'
         else:
