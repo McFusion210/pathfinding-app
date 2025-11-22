@@ -99,17 +99,17 @@ div[data-testid="stTextInput"] input::placeholder{
   padding-top:0 !important;
 }
 
-/* Program cards */
+/* Program cards (GoA blue box) */
 .pf-card-marker{
   border-radius:12px;
-  border:1px solid var(--border);
+  border:1px solid #003366;
   padding:16px 16px 14px 16px;
-  background:var(--surface);
-  margin-bottom:12px;
-  box-shadow:0 1px 2px rgba(15,23,42,0.04);
+  background:#E6EFF7; /* light Alberta blue */
+  margin-bottom:14px;
+  box-shadow:0 1px 3px rgba(15,23,42,0.10);
 }
 .pf-card-marker:hover{
-  box-shadow:0 4px 10px rgba(15,23,42,0.08);
+  box-shadow:0 4px 10px rgba(15,23,42,0.18);
 }
 .badge{
   display:inline-flex;
@@ -134,7 +134,7 @@ div[data-testid="stTextInput"] input::placeholder{
 }
 .meta{
   font-size:var(--fs-meta);
-  color:#6B7280;
+  color:#111827;
 }
 h3.program-title{
   font-size:18px;
@@ -142,7 +142,7 @@ h3.program-title{
 }
 .program-org{
   font-size:var(--fs-body);
-  color:#4B5563;
+  color:#1F2933;
   margin-bottom:6px;
 }
 .program-desc{
@@ -158,19 +158,19 @@ h3.program-title{
 }
 .meta-strip .kv{
   font-size:var(--fs-meta);
-  color:#374151;
+  color:#111827;
 }
 .placeholder{
   font-size:var(--fs-meta);
-  color:#9CA3AF;
+  color:#6B7280;
   font-style:italic;
 }
 .actions-row{
-  margin-top:6px;
+  margin-top:10px;
 }
 .pf-phone-line{
   display:block;
-  margin-top:2px;
+  margin-top:4px;
   font-size:var(--fs-body);
 }
 .pf-phone-line strong{
@@ -200,7 +200,7 @@ h3.program-title{
   font-size:12px;
 }
 
-/* Base button font reset so global buttons are neutral */
+/* Base button font reset */
 .stButton > button{
   font-size:14px;
 }
@@ -208,13 +208,13 @@ h3.program-title{
 /* Sidebar filter pills */
 div[data-testid="stSidebar"] .stButton > button{
   font-size:12px;
-  padding:3px 10px;
-  margin:3px 3px 0 0;
-  border-radius:999px;
+  padding:6px 10px;
+  margin:4px 3px 0 0;
+  border-radius:12px;
   border:1px solid #D1D5DB;
   background:#F9FAFB;
   color:#111827;
-  white-space:nowrap;
+  white-space:normal;
   width:100%;
   text-align:left;
 }
@@ -226,7 +226,7 @@ div[data-testid="stSidebar"] .stButton > button:focus{
   outline:2px solid #2563EB;
 }
 
-/* Active filter chips (buttons rendered in main area) */
+/* Active filter chips */
 .chips-row{
   display:flex;
   flex-wrap:wrap;
@@ -235,7 +235,7 @@ div[data-testid="stSidebar"] .stButton > button:focus{
 }
 .chips-row .stButton > button{
   font-size:11px;
-  padding:2px 8px;
+  padding:3px 10px;
   margin:2px 4px 0 0;
   border-radius:999px;
   border:1px solid #D1D5DB;
@@ -510,7 +510,7 @@ def render_description(desc_full: str, key: str) -> None:
         )
         if st.button("Show less", key=f"less_{key}"):
             st.session_state[state_key] = False
-            st.experimental_rerun()
+            st.rerun()
     else:
         st.markdown(
             f"<p class='program-desc'>{short}</p>", unsafe_allow_html=True
@@ -518,7 +518,7 @@ def render_description(desc_full: str, key: str) -> None:
         if len(desc_full) > limit:
             if st.button("Show more", key=f"more_{key}"):
                 st.session_state[state_key] = True
-                st.experimental_rerun()
+                st.rerun()
 
 
 # ---------------------- COLUMN INFERENCE ----------------------
@@ -596,13 +596,13 @@ def classify_support(tags: List[str], funding_amount) -> List[str]:
     has_funding_amount = isinstance(funding_amount, str) and funding_amount.strip()
 
     if has_funding_text or has_funding_amount:
-        cats.add("Funding and financial supports")
+        cats.add("Funding and Financial Supports")
 
     if any(
         k in lower
         for k in ["advisory", "consulting", "coaching", "mentor", "mentorship"]
     ):
-        cats.add("Advisory, coaching, and mentorship")
+        cats.add("Advisory, Coaching, and Mentorship")
 
     if any(
         k in lower
@@ -616,25 +616,25 @@ def classify_support(tags: List[str], funding_amount) -> List[str]:
             "education",
         ]
     ):
-        cats.add("Training and workshops")
+        cats.add("Training and Workshops")
 
     if any(
         k in lower
         for k in ["networking", "community", "peer", "association", "event"]
     ):
-        cats.add("Networking and peer support")
+        cats.add("Networking and Peer Support")
 
     if any(k in lower for k in ["accelerator", "incubator", "pre-accelerator", "cohort"]):
-        cats.add("Accelerators, incubators, and cohorts")
+        cats.add("Accelerators, Incubators, and Cohorts")
 
     if any(k in lower for k in ["export", "market", "canexport", "international"]):
-        cats.add("Export and market access")
+        cats.add("Export and Market Access")
 
     if any(k in lower for k in ["innovation", "r&d", "research", "technology", "ip"]):
-        cats.add("Innovation, R&D, and technology")
+        cats.add("Innovation, R&D, and Technology")
 
     if not cats:
-        cats.add("General business supports")
+        cats.add("General Business Supports")
 
     return sorted(cats)
 
@@ -644,43 +644,61 @@ def classify_audience(tags: List[str]) -> List[str]:
     cats: Set[str] = set()
 
     if any(k in lower for k in ["women", "woman", "female", "women-owned"]):
-        cats.add("Women and women-led businesses")
+        cats.add("Women and Women Led Businesses")
     if "indigenous" in lower or "first nation" in lower or "metis" in lower or "inuit" in lower:
-        cats.add("Indigenous entrepreneurs")
+        cats.add("Indigenous Entrepreneurs")
     if "youth" in lower or "student" in lower:
-        cats.add("Youth and students")
+        cats.add("Youth and Students")
     if "newcomer" in lower or "immigrant" in lower or "refugee" in lower:
-        cats.add("Newcomers and immigrants")
+        cats.add("Newcomers and Immigrants")
     if "rural" in lower or "northern" in lower:
-        cats.add("Rural and northern businesses")
+        cats.add("Rural and Northern Businesses")
     if "black" in lower:
-        cats.add("Black entrepreneurs")
+        cats.add("Black Entrepreneurs")
     if "francophone" in lower:
-        cats.add("Francophone entrepreneurs")
+        cats.add("Francophone Entrepreneurs")
 
     if not cats:
-        cats.add("All small businesses")
+        cats.add("All Small Businesses")
+
+    return sorted(cats)
+
+
+def classify_stage(tags: List[str]) -> List[str]:
+    """
+    Business stage categories, derived from meta tags.
+    """
+    lower = "; ".join(tags).lower()
+    cats: Set[str] = set()
+
+    if any(k in lower for k in ["idea stage", "idea-stage", "pre-start", "pre start", "pre-startup", "pre-startup", "prestartup"]):
+        cats.add("Idea or Pre Startup")
+
+    if any(k in lower for k in ["early stage", "start-up", "startup", "new business", "first three years", "0-3 years", "0 to 3 years"]):
+        cats.add("Startup – Operating Less Than 3 Years")
+
+    if any(k in lower for k in ["established", "mature", "3+ years", "three or more years", "5+ years"]):
+        cats.add("Established – 3 or More Years in Business")
+
+    if any(k in lower for k in ["scale up", "scale-up", "scaling", "growth stage", "expansion"]):
+        cats.add("Growing or Scaling")
+
+    if not cats:
+        cats.add("Open to All Stages")
 
     return sorted(cats)
 
 
 def classify_region(raw) -> List[str]:
     """
-    Region categories for sidebar pills.
-
-    Implements your changes:
-    - Any Canada / Canada + export -> "Canada"
-    - Rural references and Siksika treated as rural
-    - Edmonton and Calgary as separate categories
-    - Alberta-wide kept
-    - Best-effort North/Central/South where we can infer it
+    Region categories for sidebar pills with GoA-friendly labels.
     """
     if not isinstance(raw, str):
-        return ["Location not specified"]
+        return ["Location Not Specified"]
     s = raw.lower().strip()
     cats: Set[str] = set()
 
-    # Canada
+    # Canada (including export & international)
     if "canada" in s:
         cats.add("Canada")
 
@@ -693,7 +711,7 @@ def classify_region(raw) -> List[str]:
     # Rural and Siksika
     is_rural = "rural" in s or "siksika" in s
 
-    # Simple markers for north / central / south where we can infer
+    # Simple markers for north / central / south
     northern_markers = [
         "fort mcmurray",
         "fort mcmurray wood buffalo",
@@ -756,13 +774,13 @@ def derive_funding_types_from_tags(tags: List[str]) -> Set[str]:
         if any(x in t for x in ["loan", "microloan", "micro-loan", "flexloan"]):
             types.add("Loan")
         if "tax credit" in t or (("tax" in t) and ("credit" in t)):
-            types.add("Tax credit")
+            types.add("Tax Credit")
         if "voucher" in t or "rebate" in t:
-            types.add("Voucher or rebate")
+            types.add("Voucher or Rebate")
         if "equity" in t or "investment" in t:
-            types.add("Equity or investment")
+            types.add("Equity or Investment")
         if "financing" in t and not types:
-            types.add("Other financing")
+            types.add("Other Financing")
     return types
 
 
@@ -828,13 +846,14 @@ def load_data(path: str) -> Tuple[pd.DataFrame, Dict[str, str]]:
     # Meta tags list
     df["__tags_list"] = df[col_map["META_TAGS"]].apply(parse_tags_field_clean)
 
-    # High level support categories, audience, and region categories
+    # High level support categories, audience, region, and stage
     df["__support_cats"] = [
         classify_support(tags, fa)
         for tags, fa in zip(df["__tags_list"], df[col_map["FUNDING"]])
     ]
     df["__audience_cats"] = df["__tags_list"].apply(classify_audience)
     df["__region_cats"] = df[col_map["REGION"]].apply(classify_region)
+    df["__stage_cats"] = df["__tags_list"].apply(classify_stage)
 
     # Funding type set
     df["__fund_type_set"] = df["__tags_list"].apply(derive_funding_types_from_tags)
@@ -890,6 +909,7 @@ def apply_filters(df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, List[str]]]
     mask_support = multi_select_filter("filter_support", "__support_cats")
     mask_audience = multi_select_filter("filter_audience", "__audience_cats")
     mask_region = multi_select_filter("filter_region", "__region_cats")
+    mask_stage = multi_select_filter("filter_stage", "__stage_cats")
 
     # Funding amount buckets
     funding_vals = st.session_state.get("filter_funding_bucket", [])
@@ -917,6 +937,7 @@ def apply_filters(df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, List[str]]]
         & mask_support
         & mask_audience
         & mask_region
+        & mask_stage
         & mask_funding
         & mask_ftype
     )
@@ -930,6 +951,7 @@ def clear_all_filters():
         "filter_funding_bucket",
         "filter_audience",
         "filter_region",
+        "filter_stage",
     ]:
         st.session_state[key] = []
 
@@ -955,26 +977,33 @@ def render_filter_pills(
             col = cols[i % 2]
             with col:
                 is_on = value in selected
-                prefix = "✓ " if is_on else ""
-                btn_label = prefix + label_text
+                btn_label = label_text
                 if st.button(btn_label, key=f"{session_key}_{value}"):
                     if is_on:
                         selected.remove(value)
                     else:
                         selected.add(value)
                     st.session_state[session_key] = sorted(selected)
-                    st.experimental_rerun()
+                    st.rerun()
 
         if selected:
             if st.button("Clear", key=f"clear_{session_key}"):
                 st.session_state[session_key] = []
-                st.experimental_rerun()
+                st.rerun()
 
 
 def render_funding_type_pills(options: List[Tuple[str, str]]):
+    help_text = (
+        "Grant – non repayable funding. "
+        "Loan – repayable financing. "
+        "Tax Credit – reduces taxes based on eligible expenses. "
+        "Voucher or Rebate – discounts or partial refunds. "
+        "Equity or Investment – capital in exchange for ownership. "
+        "Other Financing – other financial products."
+    )
     render_filter_pills(
         label="What kind of funding are you looking for?",
-        help_text="For example, grants, loans, tax credits, vouchers, or equity investment.",
+        help_text=help_text,
         options=options,
         session_key="filter_funding_type",
     )
@@ -997,6 +1026,8 @@ def render_chips(active_filters: Dict[str, List[str]]):
                 prefix = "Audience:"
             elif key == "filter_region":
                 prefix = "Region:"
+            elif key == "filter_stage":
+                prefix = "Stage:"
             else:
                 prefix = ""
             label = f"{prefix} {val}" if prefix else val
@@ -1017,7 +1048,7 @@ def render_chips(active_filters: Dict[str, List[str]]):
                 if val in cur:
                     cur.remove(val)
                     st.session_state[key] = sorted(cur)
-                st.experimental_rerun()
+                st.rerun()
 
     st.markdown("</div>", unsafe_allow_html=True)
 
@@ -1104,6 +1135,14 @@ Use the website, email, phone, and favourite options to connect or save programs
         for name in sorted(region_counts.keys())
     ]
 
+    stage_counts = Counter()
+    for cats in df["__stage_cats"]:
+        stage_counts.update(cats)
+    stage_options = [
+        (name, f"{name} ({stage_counts[name]})")
+        for name in sorted(stage_counts.keys())
+    ]
+
     bucket_counts = Counter(df["__funding_bucket"].tolist())
     funding_bucket_values = [
         "Under 5K",
@@ -1128,10 +1167,10 @@ Use the website, email, phone, and favourite options to connect or save programs
     funding_type_values = [
         "Grant",
         "Loan",
-        "Tax credit",
-        "Voucher or rebate",
-        "Equity or investment",
-        "Other financing",
+        "Tax Credit",
+        "Voucher or Rebate",
+        "Equity or Investment",
+        "Other Financing",
     ]
     funding_type_options = [
         (t, f"{t} ({fund_type_counts.get(t, 0)})")
@@ -1143,11 +1182,11 @@ Use the website, email, phone, and favourite options to connect or save programs
         st.header("Filter programs")
         if st.button("Clear all filters"):
             clear_all_filters()
-            st.experimental_rerun()
+            st.rerun()
 
         render_filter_pills(
             "What type of business support do you need?",
-            "You can select more than one.",
+            "High level categories of support. You can select more than one.",
             support_options,
             "filter_support",
         )
@@ -1158,7 +1197,7 @@ Use the website, email, phone, and favourite options to connect or save programs
         if funding_bucket_options:
             render_filter_pills(
                 "How much funding are you looking for?",
-                "These bands are based on information available for each program.",
+                "These bands are based on the maximum funding available per program.",
                 funding_bucket_options,
                 "filter_funding_bucket",
             )
@@ -1175,6 +1214,13 @@ Use the website, email, phone, and favourite options to connect or save programs
             "",
             region_options,
             "filter_region",
+        )
+
+        render_filter_pills(
+            "Where is your business in its journey?",
+            "Some programs are tailored to certain stages of business.",
+            stage_options,
+            "filter_stage",
         )
 
     filtered, active_filters = apply_filters(df)
@@ -1256,7 +1302,7 @@ Use the website, email, phone, and favourite options to connect or save programs
 
         render_description(desc_full, key)
 
-        # Funding amount display logic: keep for filters, do not show on cards
+        # Funding amount display logic: keep for filters, minimal on cards
         fund_raw = sanitize_text_keep_smart(
             str(row.get(COLS["FUNDING"]) or "").strip()
         )
@@ -1270,8 +1316,11 @@ Use the website, email, phone, and favourite options to connect or save programs
         if isinstance(fund_type_set, set) and fund_type_set:
             fund_type_label = ", ".join(sorted(fund_type_set))
 
-        # Hide funding amount line in UI to match content standards
-        fund_line = ""
+        # Hide explicit "Funding available" line unless we have something meaningful
+        if fund_label:
+            fund_line = f'<span class="kv"><strong>Funding available:</strong> {fund_label}</span>'
+        else:
+            fund_line = ""
 
         fund_type_line = (
             f'<span class="kv"><strong>Funding type:</strong> {fund_type_label}</span>'
@@ -1298,8 +1347,7 @@ Use the website, email, phone, and favourite options to connect or save programs
             meta_html = f'<div class="meta-strip">{inner}</div>'
         else:
             meta_html = (
-                '<p class="placeholder">Funding type or eligibility '
-                "details are not available in this view.</p>"
+                '<p class="placeholder">Funding or eligibility details are not available in this view.</p>'
             )
 
         st.markdown(meta_html, unsafe_allow_html=True)
@@ -1360,7 +1408,7 @@ Use the website, email, phone, and favourite options to connect or save programs
                 st.session_state.favorites.remove(key)
             else:
                 st.session_state.favorites.add(key)
-            st.experimental_rerun()
+            st.rerun()
 
         st.markdown("</div>", unsafe_allow_html=True)
 
