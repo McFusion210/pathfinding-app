@@ -190,63 +190,49 @@ h3.program-title{
   font-size:12px;
 }
 
-/* Generic pill-like buttons, including sidebar filters */
-.stButton > button {
+/* Button styling */
+/* Base reset so main buttons stay normal */
+.stButton > button{
+  font-size:14px;
+}
+
+/* Sidebar filter pills */
+div[data-testid="stSidebar"] .stButton > button{
   font-size:12px;
-  padding:4px 10px;
+  padding:3px 10px;
+  margin:3px 3px 0 0;
   border-radius:999px;
   border:1px solid #D1D5DB;
   background:#F9FAFB;
   color:#111827;
+  white-space:nowrap;
 }
-.stButton > button:hover{
+div[data-testid="stSidebar"] .stButton > button:hover{
   border-color:#9CA3AF;
   background:#F3F4F6;
 }
-
-/* Links inside cards */
-div[data-testid="stVerticalBlock"]:has(.pf-card-marker) a{
-  color:#007FA3 !important;
-  text-decoration:underline;
-}
-div[data-testid="stVerticalBlock"]:has(.pf-card-marker) a:hover{
-  opacity:.85;
+div[data-testid="stSidebar"] .stButton > button:focus{
+  outline:2px solid #2563EB;
 }
 
-/* Buttons inside cards that we treat as links */
-div[data-testid="stVerticalBlock"]:has(.pf-card-marker) .stButton > button{
-  background:none !important;
-  border:none !important;
-  padding:0;
-  margin:0;
-  color:#007FA3 !important;
-  text-decoration:underline;
-  font-size:var(--fs-body);
-  cursor:pointer;
-  box-shadow:none !important;
-  border-radius:0 !important;
-}
-div[data-testid="stVerticalBlock"]:has(.pf-card-marker) .stButton > button:hover{
-  opacity:.85;
-  text-decoration:underline;
-}
-
-/* Active filter chips */
+/* Active filter chips (buttons rendered in main area) */
 .chips-row{
   display:flex;
   flex-wrap:wrap;
   gap:6px;
   margin-top:4px;
 }
-.chip{
-  display:inline-flex;
-  align-items:center;
-  gap:6px;
+.chips-row .stButton > button{
+  font-size:11px;
+  padding:2px 8px;
+  margin:2px 4px 0 0;
   border-radius:999px;
+  border:1px solid #D1D5DB;
   background:#E5E7EB;
-  padding:2px 10px;
-  font-size:12px;
   color:#374151;
+}
+.chips-row .stButton > button:hover{
+  background:#D1D5DB;
 }
 </style>
         """,
@@ -868,8 +854,9 @@ def render_filter_pills(
         for i, (value, label_text) in enumerate(options):
             col = cols[i % 2]
             with col:
-                btn_label = label_text
                 is_on = value in selected
+                prefix = "✓ " if is_on else ""
+                btn_label = prefix + label_text
                 if st.button(btn_label, key=f"{session_key}_{value}"):
                     if is_on:
                         selected.remove(value)
@@ -896,7 +883,8 @@ def render_funding_type_pills(options: List[Tuple[str, str]]):
 def render_chips(active_filters: Dict[str, List[str]]):
     if not active_filters:
         return
-    st.markdown("<div class='chips-row'>", unsafe_allow_html=True)
+
+    flat: List[Tuple[str, str, str]] = []
     for key, vals in active_filters.items():
         for val in vals:
             if key == "filter_support":
@@ -912,19 +900,25 @@ def render_chips(active_filters: Dict[str, List[str]]):
             else:
                 prefix = ""
             label = f"{prefix} {val}" if prefix else val
+            flat.append((key, val, label))
 
-            col1, col2 = st.columns([0.9, 0.1])
-            with col1:
-                st.markdown(
-                    f"<span class='chip'>{label}</span>", unsafe_allow_html=True
-                )
-            with col2:
-                if st.button("x", key=f"chip_{key}_{val}"):
-                    cur = set(st.session_state.get(key, []))
-                    if val in cur:
-                        cur.remove(val)
-                        st.session_state[key] = sorted(cur)
-                        st.experimental_rerun()
+    if not flat:
+        return
+
+    st.markdown("<div class='chips-row'>", unsafe_allow_html=True)
+    num_cols = min(4, len(flat))
+    cols = st.columns(num_cols)
+
+    for i, (key, val, label) in enumerate(flat):
+        col = cols[i % num_cols]
+        with col:
+            if st.button(f"{label} ✕", key=f"chip_{key}_{val}"):
+                cur = set(st.session_state.get(key, []))
+                if val in cur:
+                    cur.remove(val)
+                    st.session_state[key] = sorted(cur)
+                st.experimental_rerun()
+
     st.markdown("</div>", unsafe_allow_html=True)
 
 
@@ -1163,7 +1157,7 @@ Use the website, email, phone, and favourite options to connect or save programs
 
         render_description(desc_full, key)
 
-        # Funding amount display logic
+        # Funding amount display logic: keep for filters, do not show on cards
         fund_raw = sanitize_text_keep_smart(
             str(row.get(COLS["FUNDING"]) or "").strip()
         )
@@ -1177,11 +1171,9 @@ Use the website, email, phone, and favourite options to connect or save programs
         if isinstance(fund_type_set, set) and fund_type_set:
             fund_type_label = ", ".join(sorted(fund_type_set))
 
-        fund_line = (
-            f'<span class="kv"><strong>Funding available:</strong> {fund_label}</span>'
-            if fund_label
-            else ""
-        )
+        # Hide funding amount line in UI to match content standards
+        fund_line = ""
+
         fund_type_line = (
             f'<span class="kv"><strong>Funding type:</strong> {fund_type_label}</span>'
             if fund_type_label
@@ -1207,7 +1199,7 @@ Use the website, email, phone, and favourite options to connect or save programs
             meta_html = f'<div class="meta-strip">{inner}</div>'
         else:
             meta_html = (
-                '<p class="placeholder">Funding, funding type, or eligibility '
+                '<p class="placeholder">Funding type or eligibility '
                 "details are not available in this view.</p>"
             )
 
