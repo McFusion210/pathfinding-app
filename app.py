@@ -113,11 +113,6 @@ h3.program-title{
   font-size:var(--fs-body);
   color:#111827;
 }
-.toggle-link{
-  font-size:var(--fs-meta);
-  color:var(--link);
-  cursor:pointer;
-}
 .meta-strip{
   display:flex;
   flex-wrap:wrap;
@@ -154,35 +149,6 @@ small{ font-size:var(--fs-meta); }
 .sidebar-section small{
   color:#6B7280;
 }
-.pill-group{
-  display:flex;
-  flex-wrap:wrap;
-  gap:6px;
-  margin-top:6px;
-  margin-bottom:4px;
-}
-.filter-pill{
-  border-radius:999px;
-  border:1px solid #D1D5DB;
-  padding:4px 10px;
-  font-size:13px;
-  cursor:pointer;
-  background:#FFFFFF;
-  color:#374151;
-}
-.filter-pill.active{
-  background:#003366;
-  color:#FFFFFF;
-  border-color:#003366;
-}
-.filter-pill small{
-  font-size:11px;
-}
-.clear-link{
-  font-size:12px;
-  color:#2563EB;
-  cursor:pointer;
-}
 .chips-row{
   display:flex;
   flex-wrap:wrap;
@@ -199,12 +165,6 @@ small{ font-size:var(--fs-meta); }
   font-size:12px;
   color:#374151;
 }
-.chip button{
-  border:none;
-  background:none;
-  cursor:pointer;
-  font-size:12px;
-}
 .actions-row{
   margin-top:6px;
 }
@@ -216,28 +176,12 @@ small{ font-size:var(--fs-meta); }
 .pf-phone-line strong{
   font-weight:600;
 }
-.actions-links{
-  display:flex;
-  flex-wrap:wrap;
-  gap:8px;
-}
-.actions-links a{
-  color:var(--link);
-  text-decoration:underline;
-  font-size:var(--fs-body);
-  transition:opacity .15s ease, text-decoration-color .15s ease;
-}
-.actions-links a:hover{
-  opacity:.85;
-  text-decoration:underline;
-}
-.actions-links a:focus{
-  outline:3px solid #feba35;
-  outline-offset:2px;
-  border-radius:4px;
+.results-summary{
+  font-size:var(--fs-meta);
+  color:#4B5563;
 }
 div[data-testid="stVerticalBlock"]:has(.pf-card-marker) a{
-  color:var(--link) !important;
+  color:#007FA3 !important;
   text-decoration:underline;
 }
 div[data-testid="stVerticalBlock"]:has(.pf-card-marker) a:hover{
@@ -248,7 +192,7 @@ div[data-testid="stVerticalBlock"]:has(.pf-card-marker) .stButton > button{
   border:none !important;
   padding:0;
   margin:0;
-  color:var(--link) !important;
+  color:#007FA3 !important;
   text-decoration:underline;
   font-size:var(--fs-body);
   cursor:pointer;
@@ -261,10 +205,6 @@ div[data-testid="stVerticalBlock"]:has(.pf-card-marker) .stButton > button:hover
 }
 .block-container{
   padding-top:0 !important;
-}
-.results-summary{
-  font-size:var(--fs-meta);
-  color:#4B5563;
 }
 </style>
         """,
@@ -350,12 +290,30 @@ def freshness_label(days: Optional[int]) -> str:
 
 
 def funding_bucket(text: str) -> str:
-    if not text:
+    """Safe bucketer for Funding Amount."""
+    if text is None or (isinstance(text, float) and pd.isna(text)):
         return UNKNOWN
+
     s = sanitize_text_keep_smart(str(text))
-    nums = [int("".join(re.findall(r"\d+", p))) for p in re.findall(r"\$?\s*([\d,]+)", s)]
+
+    matches = re.findall(r"\$?\s*([\d,]+)", s)
+    nums: List[int] = []
+
+    for p in matches:
+        digit_groups = re.findall(r"\d+", p)
+        if not digit_groups:
+            continue
+        num_str = "".join(digit_groups)
+        if not num_str:
+            continue
+        try:
+            nums.append(int(num_str))
+        except ValueError:
+            continue
+
     if not nums:
         return UNKNOWN
+
     mx = max(nums)
     if mx < 5000:
         return "Under 5K"
@@ -782,7 +740,6 @@ def main():
     embed_css()
     embed_logo_html()
 
-    # Point this to your actual file (xlsx or csv)
     data_path = "Pathfinding_Master.xlsx"
     df, _cols = load_data(data_path)
 
@@ -975,7 +932,6 @@ Use this internal prototype to explore programs, services, and funding for Alber
 
         render_description(desc_full, key)
 
-        # Funding line: only use raw text when it explicitly contains $
         fund_raw = sanitize_text_keep_smart(str(row.get(COLS["FUNDING"]) or "").strip())
         fund_label = ""
         if fund_raw and "$" in fund_raw:
