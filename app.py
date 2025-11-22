@@ -383,7 +383,8 @@ def main() -> None:
     st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
 
     # IMPORTANT: update this path to your actual file name and location
-    data_path = os.getenv("SB_TOOL_DATA_PATH", "data/programs.xlsx")
+    data_path = os.getenv("data_path = "Pathfinding_Master.xlsx"
+")
     df = load_data(data_path)
     if df.empty:
         st.warning("Data could not be loaded. Please update `data_path` in app.py.")
