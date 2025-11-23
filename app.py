@@ -67,10 +67,8 @@ a:link, a:visited{
   color:#FFFFFF !important;
 }
 .goa-header-logo{
-  height:40px;
-  width:auto;
-  display:block;
-  object-fit:contain;
+  width:140px;
+  height:auto;
 }
 .goa-header-text h1{
   font-size:22px;
@@ -188,7 +186,7 @@ h3.program-title{
   margin-top:6px;
 }
 .sidebar-section h3{
-  font-size:15px;
+  font-size:12px;           /* swapped: smaller heading */
   font-weight:600;
   margin:0 0 4px 0;
 }
@@ -204,7 +202,7 @@ h3.program-title{
 
 /* Sidebar filter pills (single-column) */
 div[data-testid="stSidebar"] .stButton > button{
-  font-size:12px !important;  /* headings larger than options */
+  font-size:15px !important;  /* swapped: larger pill text */
   padding:8px 10px;
   margin:4px 0 0 0;
   border-radius:12px;
@@ -238,7 +236,7 @@ div[data-testid="stSidebar"] .stButton > button:focus{
   border-radius:999px;
   border:1px solid #D1D5DB;
   background:#E5E7EB;
-  color:#374151;
+  color:#1D4ED8;  /* blue-ish to distinguish */
   text-align:left;
 }
 .chips-row .stButton > button:hover{
@@ -255,21 +253,25 @@ div[data-testid="stSidebar"] .stButton > button:focus{
 }
 
 /* Buttons inside cards treated as text links (Call, Favourite) */
-.pf-card-marker div[data-testid="stButton"] > button{
+.pf-card-marker .stButton > button{
   background:none !important;
   border:none !important;
-  padding:0 !important;
-  margin:0 16px 0 0 !important;
+  padding:0;
+  margin:0 16px 0 0;
   color:#007FA3 !important;
-  text-decoration:underline !important;
-  font-size:var(--fs-body) !important;
+  text-decoration:underline;
+  font-size:var(--fs-body);
   cursor:pointer;
   box-shadow:none !important;
   border-radius:0 !important;
 }
-.pf-card-marker div[data-testid="stButton"] > button:hover{
+.pf-card-marker .stButton > button:hover{
   opacity:.85;
-  text-decoration:underline !important;
+}
+
+/* Search bar border a bit darker */
+div[data-baseweb="input"] > div{
+  border-color:#9CA3AF !important;
 }
 </style>
         """,
@@ -278,15 +280,21 @@ div[data-testid="stSidebar"] .stButton > button:focus{
 
 
 def embed_logo_html() -> None:
-    logo_url = (
-        "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f5/"
-        "Alberta_Government_Logo.svg/320px-Alberta_Government_Logo.svg.png"
-    )
+    # Use repo assets / official GoA logo if available; fall back to remote
+    local_logo = "assets/GoA-logo.svg"
+    if os.path.exists(local_logo):
+        logo_src = local_logo
+    else:
+        logo_src = (
+            "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f5/"
+            "Alberta_Government_Logo.svg/320px-Alberta_Government_Logo.svg.png"
+        )
+
     st.markdown(
         f"""
 <a href="#main" class="skip-link">Skip to main content</a>
 <div class="goa-header">
-  <img src="{logo_url}" alt="Government of Alberta" class="goa-header-logo" />
+  <img src="{logo_src}" alt="Government of Alberta" class="goa-header-logo" />
   <div class="goa-header-text">
     <h1>Small Business Supports Finder</h1>
     <p>Helping Alberta entrepreneurs and small businesses find programs, funding, and services quickly.</p>
@@ -524,9 +532,7 @@ def render_description(desc_full: str, key: str) -> None:
 # ---------------------- COLUMN INFERENCE ----------------------
 
 
-def map_col(
-    df: pd.DataFrame, candidates: List[str], default: Optional[str] = None
-) -> str:
+def map_col(df: pd.DataFrame, candidates: List[str], default: Optional[str] = None) -> str:
     cols = [c for c in df.columns if isinstance(c, str)]
     low = {c.lower(): c for c in cols}
     for cand in candidates:
@@ -671,43 +677,13 @@ def classify_stage(tags: List[str]) -> List[str]:
     lower = "; ".join(tags).lower()
     cats: Set[str] = set()
 
-    if any(
-        k in lower
-        for k in [
-            "idea stage",
-            "idea-stage",
-            "pre-start",
-            "pre start",
-            "pre-startup",
-            "prestartup",
-        ]
-    ):
+    if any(k in lower for k in ["idea stage", "idea-stage", "pre-start", "pre start", "pre-startup", "prestartup"]):
         cats.add("Idea or Pre Startup")
 
-    if any(
-        k in lower
-        for k in [
-            "early stage",
-            "start-up",
-            "startup",
-            "new business",
-            "first three years",
-            "0-3 years",
-            "0 to 3 years",
-        ]
-    ):
+    if any(k in lower for k in ["early stage", "start-up", "startup", "new business", "first three years", "0-3 years", "0 to 3 years"]):
         cats.add("Startup – Operating Less Than 3 Years")
 
-    if any(
-        k in lower
-        for k in [
-            "established",
-            "mature",
-            "3+ years",
-            "three or more years",
-            "5+ years",
-        ]
-    ):
+    if any(k in lower for k in ["established", "mature", "3+ years", "three or more years", "5+ years"]):
         cats.add("Established – 3 or More Years in Business")
 
     if any(k in lower for k in ["scale up", "scale-up", "scaling", "growth stage", "expansion"]):
@@ -1230,7 +1206,7 @@ Use the website, email, phone, and favourite options to connect or save programs
             "filter_support",
         )
 
-        # 3. Location
+        # 3. Location (left at the bottom of the stack of “core” filters)
         render_filter_pills(
             "Where is your business located?",
             "",
@@ -1301,13 +1277,16 @@ Use the website, email, phone, and favourite options to connect or save programs
 
         website = str(row.get(COLS["WEBSITE"]) or "").strip()
         email_raw = str(row.get(COLS["EMAIL"]) or "").strip()
-        phone_raw = str(row.get(COLS["PHONE"]) or "").strip()
+        phone_raw_original = str(row.get(COLS["PHONE"]) or "").strip()
 
-        if (
-            "not publicly listed" in phone_raw.lower()
-            and "contact page" in phone_raw.lower()
-        ):
+        # Phone handling: detect "not publicly listed" but allow a Call click to reveal that
+        phone_note_hidden = False
+        if "not publicly listed" in phone_raw_original.lower():
+            phone_note_hidden = True
             phone_raw = ""
+        else:
+            phone_raw = phone_raw_original
+
         phone_display_multi = format_phone_multi(phone_raw)
         key = str(row.get(COLS["KEY"], f"k{i}"))
 
@@ -1353,9 +1332,7 @@ Use the website, email, phone, and favourite options to connect or save programs
             fund_type_label = ", ".join(sorted(fund_type_set))
 
         if fund_label:
-            fund_line = (
-                f'<span class="kv"><strong>Funding available:</strong> {fund_label}</span>'
-            )
+            fund_line = f'<span class="kv"><strong>Funding available:</strong> {fund_label}</span>'
         else:
             fund_line = ""
 
@@ -1406,25 +1383,16 @@ Use the website, email, phone, and favourite options to connect or save programs
 
         with cols_actions[1]:
             email_label, email_href = parse_email_field(email_raw)
-            if email_label:
-                if email_href:
-                    st.markdown(
-                        f"[{email_label}]({email_href})", unsafe_allow_html=True
-                    )
-                else:
-                    st.markdown(
-                        f"<span class='placeholder'>{email_label}</span>",
-                        unsafe_allow_html=True,
-                    )
+            # Only show Email when we actually have a clickable address
+            if email_href:
+                st.markdown(
+                    f"[{email_label}]({email_href})", unsafe_allow_html=True
+                )
 
         with cols_actions[2]:
-            if phone_display_multi:
+            show_call_button = bool(phone_display_multi or phone_note_hidden)
+            if show_call_button:
                 call_clicked = st.button("Call", key=f"call_{key}")
-            else:
-                st.markdown(
-                    "<span class='placeholder'>No phone number listed.</span>",
-                    unsafe_allow_html=True,
-                )
 
         with cols_actions[3]:
             fav_on = key in st.session_state.favorites
@@ -1433,17 +1401,24 @@ Use the website, email, phone, and favourite options to connect or save programs
 
         st.markdown("</div>", unsafe_allow_html=True)
 
-        if phone_display_multi:
+        # Call reveal: show numbers or "no phone number listed"
+        if phone_display_multi or phone_note_hidden:
             call_state_key = f"show_call_{key}"
             if call_clicked:
                 st.session_state[call_state_key] = not st.session_state.get(
                     call_state_key, False
                 )
             if st.session_state.get(call_state_key, False):
-                st.markdown(
-                    f"<small class='pf-phone-line'><strong>Phone:</strong> {phone_display_multi}</small>",
-                    unsafe_allow_html=True,
-                )
+                if phone_display_multi:
+                    st.markdown(
+                        f"<small class='pf-phone-line'><strong>Phone:</strong> {phone_display_multi}</small>",
+                        unsafe_allow_html=True,
+                    )
+                else:
+                    st.markdown(
+                        "<small class='pf-phone-line'><strong>Phone:</strong> No phone number listed. Visit the program website for contact options.</small>",
+                        unsafe_allow_html=True,
+                    )
 
         if fav_clicked:
             if fav_on:
