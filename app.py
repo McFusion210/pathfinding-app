@@ -1,5 +1,6 @@
 import os
 import re
+import base64
 from collections import Counter
 from typing import Dict, List, Optional, Tuple, Set
 
@@ -95,7 +96,7 @@ a:link, a:visited{
   border-radius:12px;
   border:1px solid #003366;
   padding:16px 16px 14px 16px;
-  background:#E6EFF7; /* light Alberta blue */
+  background:#E6EFF7;
   margin:10px 0 14px 0;
   box-shadow:0 1px 3px rgba(15,23,42,0.10);
 }
@@ -186,7 +187,7 @@ h3.program-title{
   margin-top:6px;
 }
 .sidebar-section h3{
-  font-size:12px;           /* swapped: smaller heading */
+  font-size:15px;
   font-weight:600;
   margin:0 0 4px 0;
 }
@@ -195,14 +196,22 @@ h3.program-title{
   font-size:12px;
 }
 
-/* Base button font reset */
+/* Base button reset: main content buttons act like text links */
 .stButton > button{
   font-size:14px;
+  background:none;
+  border:none;
+  color:var(--link);
+  text-decoration:underline;
+  padding:0;
+  box-shadow:none;
+  border-radius:0;
+  cursor:pointer;
 }
 
 /* Sidebar filter pills (single-column) */
 div[data-testid="stSidebar"] .stButton > button{
-  font-size:15px !important;  /* swapped: larger pill text */
+  font-size:13px !important;
   padding:8px 10px;
   margin:4px 0 0 0;
   border-radius:12px;
@@ -213,6 +222,7 @@ div[data-testid="stSidebar"] .stButton > button{
   width:100%;
   text-align:left;
   min-height:40px;
+  text-decoration:none;
 }
 div[data-testid="stSidebar"] .stButton > button:hover{
   border-color:#9CA3AF;
@@ -234,13 +244,10 @@ div[data-testid="stSidebar"] .stButton > button:focus{
   padding:4px 12px;
   margin:2px 4px 0 0;
   border-radius:999px;
-  border:1px solid #D1D5DB;
-  background:#E5E7EB;
-  color:#1D4ED8;  /* blue-ish to distinguish */
+  border:1px solid #BFD3EA;
+  background:#E6EFF7;
+  color:#007FA3;
   text-align:left;
-}
-.chips-row .stButton > button:hover{
-  background:#D1D5DB;
 }
 
 /* Links inside cards */
@@ -252,26 +259,15 @@ div[data-testid="stSidebar"] .stButton > button:focus{
   opacity:.85;
 }
 
-/* Buttons inside cards treated as text links (Call, Favourite) */
-.pf-card-marker .stButton > button{
-  background:none !important;
-  border:none !important;
-  padding:0;
-  margin:0 16px 0 0;
-  color:#007FA3 !important;
-  text-decoration:underline;
-  font-size:var(--fs-body);
-  cursor:pointer;
-  box-shadow:none !important;
-  border-radius:0 !important;
-}
-.pf-card-marker .stButton > button:hover{
-  opacity:.85;
+/* Make the search bar border more visible */
+div[data-testid="stTextInput"] > div > div{
+  border:1px solid #9CA3AF;
+  border-radius:999px;
 }
 
-/* Search bar border a bit darker */
-div[data-baseweb="input"] > div{
-  border-color:#9CA3AF !important;
+/* Ensure buttons inside cards still look like links */
+.pf-card-marker .stButton > button{
+  color:#007FA3 !important;
 }
 </style>
         """,
@@ -280,11 +276,25 @@ div[data-baseweb="input"] > div{
 
 
 def embed_logo_html() -> None:
-    # Use repo assets / official GoA logo if available; fall back to remote
-    local_logo = "assets/GoA-logo.svg"
-    if os.path.exists(local_logo):
-        logo_src = local_logo
-    else:
+    # Prefer local GoA logo from assets, fall back to remote if needed
+    logo_src = ""
+    try:
+        here = os.path.dirname(__file__)
+    except NameError:
+        here = "."
+    possible_paths = [
+        os.path.join(here, "assets", "GoA-logo.svg"),
+        os.path.join(here, "GoA-logo.svg"),
+    ]
+    for p in possible_paths:
+        if os.path.exists(p):
+            with open(p, "rb") as f:
+                data = f.read()
+            b64 = base64.b64encode(data).decode("ascii")
+            logo_src = f"data:image/svg+xml;base64,{b64}"
+            break
+
+    if not logo_src:
         logo_src = (
             "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f5/"
             "Alberta_Government_Logo.svg/320px-Alberta_Government_Logo.svg.png"
@@ -480,18 +490,18 @@ def parse_email_field(raw: str) -> Tuple[str, str]:
         label = m.group(1) or "Email"
         href = m.group(2)
         if "not publicly listed" in href.lower():
-            return "Email not publicly listed. Use the program website contact page.", ""
+            return "", ""
         return label, href
     if "not publicly listed" in lower:
-        return "Email not publicly listed. Use the program website contact page.", ""
+        return "", ""
     if lower.startswith("mailto:"):
         addr = s.split(":", 1)[1].strip()
         if addr and "not publicly listed" not in addr.lower():
             return "Email", f"mailto:{addr}"
-        return "Email not publicly listed. Use the program website contact page.", ""
+        return "", ""
     if re.match(r"^[^\s@]+@[^\s@]+\.[^\s@]+$", s):
         return "Email", f"mailto:{s.lower()}"
-    return s, ""
+    return "", ""
 
 
 # ---------------------- DISPLAY HELPERS ----------------------
@@ -712,10 +722,9 @@ def classify_region(raw) -> List[str]:
     if "edmonton" in s:
         cats.add("Edmonton")
 
-    # Rural and Siksika
+    # Rural markers
     is_rural = "rural" in s or "siksika" in s
 
-    # Simple markers for north / central / south
     northern_markers = [
         "fort mcmurray",
         "fort mcmurray wood buffalo",
@@ -754,15 +763,12 @@ def classify_region(raw) -> List[str]:
     if is_rural:
         cats.add("Rural Alberta")
 
-    # Alberta-wide
     if s == "alberta" or "alberta-wide" in s:
         cats.add("Alberta-wide")
 
-    # If nothing matched but Alberta is mentioned, default to Alberta-wide
     if not cats and "alberta" in s:
         cats.add("Alberta-wide")
 
-    # Fallback to original text if absolutely nothing matched
     if not cats:
         cats.add(raw)
 
@@ -824,10 +830,8 @@ def load_data(path: str) -> Tuple[pd.DataFrame, Dict[str, str]]:
             df[col_name] = ""
             col_map[key] = col_name
 
-    # Derived funding bucket
     df["__funding_bucket"] = df[col_map["FUNDING"]].apply(funding_bucket)
 
-    # Last checked metrics
     days_list, date_list = [], []
     for val in df[col_map["LAST_CHECKED"]].tolist():
         d, ds = days_since(val)
@@ -836,7 +840,6 @@ def load_data(path: str) -> Tuple[pd.DataFrame, Dict[str, str]]:
     df["__fresh_days"] = days_list
     df["__fresh_date"] = date_list
 
-    # Stable key
     if df[col_map["KEY"]].isna().any():
         df[col_map["KEY"]] = (
             df[col_map["PROGRAM_NAME"]]
@@ -847,10 +850,8 @@ def load_data(path: str) -> Tuple[pd.DataFrame, Dict[str, str]]:
             + df.index.astype(str)
         )
 
-    # Meta tags list
     df["__tags_list"] = df[col_map["META_TAGS"]].apply(parse_tags_field_clean)
 
-    # High level support categories, audience, region, and stage
     df["__support_cats"] = [
         classify_support(tags, fa)
         for tags, fa in zip(df["__tags_list"], df[col_map["FUNDING"]])
@@ -859,7 +860,6 @@ def load_data(path: str) -> Tuple[pd.DataFrame, Dict[str, str]]:
     df["__region_cats"] = df[col_map["REGION"]].apply(classify_region)
     df["__stage_cats"] = df["__tags_list"].apply(classify_stage)
 
-    # Funding type set
     df["__fund_type_set"] = df["__tags_list"].apply(derive_funding_types_from_tags)
 
     return df, col_map
@@ -915,7 +915,6 @@ def apply_filters(df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, List[str]]]
     mask_region = multi_select_filter("filter_region", "__region_cats")
     mask_stage = multi_select_filter("filter_stage", "__stage_cats")
 
-    # Funding amount buckets
     funding_vals = st.session_state.get("filter_funding_bucket", [])
     if funding_vals:
         active_filters["filter_funding_bucket"] = funding_vals
@@ -923,7 +922,6 @@ def apply_filters(df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, List[str]]]
     else:
         mask_funding = pd.Series(True, index=df.index)
 
-    # Funding types (grants, loans, etc.)
     fund_type_vals = st.session_state.get("filter_funding_type", [])
     if fund_type_vals:
         active_filters["filter_funding_type"] = fund_type_vals
@@ -976,7 +974,6 @@ def render_filter_pills(
             st.session_state[session_key] = []
         selected = set(st.session_state[session_key])
 
-        # Single-column layout: each button on its own row
         for value, label_text in options:
             is_on = value in selected
             btn_label = label_text
@@ -995,7 +992,6 @@ def render_filter_pills(
 
 
 def render_funding_type_pills(options: List[Tuple[str, str]]):
-    # Sleeker helper text: short intro + small bullet list of definitions
     help_text = """
 Choose the type of financial support that best fits what you need.
 <ul style='margin-top:4px; padding-left:18px;'>
@@ -1072,7 +1068,6 @@ def main():
     df, col_map = load_data(data_path)
     COLS = col_map
 
-    # Hero section
     st.markdown("## Find programs and supports for your Alberta business")
 
     col1, col2, col3 = st.columns(3)
@@ -1206,7 +1201,7 @@ Use the website, email, phone, and favourite options to connect or save programs
             "filter_support",
         )
 
-        # 3. Location (left at the bottom of the stack of “core” filters)
+        # 3. Location (left at the bottom as requested)
         render_filter_pills(
             "Where is your business located?",
             "",
@@ -1214,7 +1209,7 @@ Use the website, email, phone, and favourite options to connect or save programs
             "filter_region",
         )
 
-        # 4. Funding type (with definitions)
+        # 4. Funding type
         if funding_type_options:
             render_funding_type_pills(funding_type_options)
 
@@ -1277,16 +1272,13 @@ Use the website, email, phone, and favourite options to connect or save programs
 
         website = str(row.get(COLS["WEBSITE"]) or "").strip()
         email_raw = str(row.get(COLS["EMAIL"]) or "").strip()
-        phone_raw_original = str(row.get(COLS["PHONE"]) or "").strip()
+        phone_raw = str(row.get(COLS["PHONE"]) or "").strip()
 
-        # Phone handling: detect "not publicly listed" but allow a Call click to reveal that
-        phone_note_hidden = False
-        if "not publicly listed" in phone_raw_original.lower():
-            phone_note_hidden = True
+        if (
+            "not publicly listed" in phone_raw.lower()
+            and "contact page" in phone_raw.lower()
+        ):
             phone_raw = ""
-        else:
-            phone_raw = phone_raw_original
-
         phone_display_multi = format_phone_multi(phone_raw)
         key = str(row.get(COLS["KEY"], f"k{i}"))
 
@@ -1317,7 +1309,6 @@ Use the website, email, phone, and favourite options to connect or save programs
 
         render_description(desc_full, key)
 
-        # Funding amount display logic
         fund_raw = sanitize_text_keep_smart(
             str(row.get(COLS["FUNDING"]) or "").strip()
         )
@@ -1366,7 +1357,7 @@ Use the website, email, phone, and favourite options to connect or save programs
 
         st.markdown(meta_html, unsafe_allow_html=True)
 
-        # Actions row
+        # Actions row: all treated as text links via CSS
         st.markdown("<div class='actions-row'>", unsafe_allow_html=True)
         cols_actions = st.columns(4)
         call_clicked = False
@@ -1383,15 +1374,13 @@ Use the website, email, phone, and favourite options to connect or save programs
 
         with cols_actions[1]:
             email_label, email_href = parse_email_field(email_raw)
-            # Only show Email when we actually have a clickable address
             if email_href:
                 st.markdown(
                     f"[{email_label}]({email_href})", unsafe_allow_html=True
                 )
 
         with cols_actions[2]:
-            show_call_button = bool(phone_display_multi or phone_note_hidden)
-            if show_call_button:
+            if phone_display_multi:
                 call_clicked = st.button("Call", key=f"call_{key}")
 
         with cols_actions[3]:
@@ -1401,24 +1390,17 @@ Use the website, email, phone, and favourite options to connect or save programs
 
         st.markdown("</div>", unsafe_allow_html=True)
 
-        # Call reveal: show numbers or "no phone number listed"
-        if phone_display_multi or phone_note_hidden:
+        if phone_display_multi:
             call_state_key = f"show_call_{key}"
             if call_clicked:
                 st.session_state[call_state_key] = not st.session_state.get(
                     call_state_key, False
                 )
             if st.session_state.get(call_state_key, False):
-                if phone_display_multi:
-                    st.markdown(
-                        f"<small class='pf-phone-line'><strong>Phone:</strong> {phone_display_multi}</small>",
-                        unsafe_allow_html=True,
-                    )
-                else:
-                    st.markdown(
-                        "<small class='pf-phone-line'><strong>Phone:</strong> No phone number listed. Visit the program website for contact options.</small>",
-                        unsafe_allow_html=True,
-                    )
+                st.markdown(
+                    f"<small class='pf-phone-line'><strong>Phone:</strong> {phone_display_multi}</small>",
+                    unsafe_allow_html=True,
+                )
 
         if fav_clicked:
             if fav_on:
