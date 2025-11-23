@@ -56,24 +56,24 @@ a:link, a:visited{
 .goa-header{
   background:#003366;
   color:#FFFFFF !important;
-  padding:12px 24px;
+  padding:8px 32px;
 }
 .goa-header-inner{
   max-width:1200px;
   margin:0 auto;
   display:flex;
   align-items:center;
-  gap:20px;
+  gap:14px;
 }
 .goa-header *{
   color:#FFFFFF !important;
 }
 .goa-header-logo{
-  height:36px;
+  height:32px;
   width:auto;
 }
 .goa-header-title{
-  font-size:21px;
+  font-size:20px;
   font-weight:600;
   margin:0 0 2px 0;
 }
@@ -97,7 +97,7 @@ a:link, a:visited{
   border-radius:12px;
   border:1px solid #003366;
   padding:16px 18px 14px 18px;
-  background:#E6EFF7; /* light Alberta blue */
+  background:#E6EFF7;
   margin:10px 0 16px 0;
   box-shadow:0 1px 3px rgba(15,23,42,0.10);
 }
@@ -202,14 +202,11 @@ h3.program-title{
   font-size:12px;
 }
 
-/* Help box under funding types */
-.sidebar-help{
-  margin-top:6px;
-  padding:8px 10px;
-  background:#F3F4F6;
-  border-radius:8px;
-  border-left:3px solid #D1D5DB;
+/* Help text for individual pills */
+.pill-def{
   font-size:12px;
+  color:#6B7280;
+  margin:0 0 4px 4px;
 }
 
 /* Base button font reset */
@@ -292,7 +289,7 @@ div[data-testid="stSidebar"] h3{
 
 
 def embed_logo_html() -> None:
-    # Using GitHub-hosted SVG for consistency; you can swap this for a local static path if desired.
+    # Uses SVG from your repo; adjust if you change the path.
     logo_url = (
         "https://raw.githubusercontent.com/McFusion210/pathfinding-app/main/assets/GoA-logo.svg"
     )
@@ -664,10 +661,10 @@ def classify_stage(tags: List[str]) -> List[str]:
         cats.add("Idea or Pre Startup")
 
     if any(k in lower for k in ["early stage", "start-up", "startup", "new business", "first three years", "0-3 years", "0 to 3 years"]):
-        cats.add("Startup – Operating Less Than 3 Years")
+        cats.add("Startup - Operating Less Than 3 Years")
 
     if any(k in lower for k in ["established", "mature", "3+ years", "three or more years", "5+ years"]):
-        cats.add("Established – 3 or More Years in Business")
+        cats.add("Established - 3 or More Years in Business")
 
     if any(k in lower for k in ["scale up", "scale-up", "scaling", "growth stage", "expansion"]):
         cats.add("Growing or Scaling")
@@ -978,29 +975,51 @@ def render_filter_pills(
 
 
 def render_funding_type_pills(options: List[Tuple[str, str]]):
-    # 1) Pills (no long help text)
-    render_filter_pills(
-        label="What kind of funding are you looking for?",
-        help_text="",
-        options=options,
-        session_key="filter_funding_type",
-    )
+    # Definitions keyed by value; each rendered under its pill.
+    definitions = {
+        "Grant": "Grant - non repayable funding.",
+        "Loan": "Loan - repayable financing with interest.",
+        "Tax Credit": "Tax Credit - reduces taxes based on eligible expenses.",
+        "Voucher or Rebate": "Voucher or Rebate - discounts or partial refunds.",
+        "Equity or Investment": "Equity or Investment - capital in exchange for ownership.",
+        "Other Financing": "Other Financing - other financial products.",
+    }
 
-    # 2) Definitions just below the pills
-    st.markdown(
-        """
-<div class="sidebar-help">
-  <strong>Funding types</strong><br/>
-  <strong>Grant</strong> – non repayable funding.<br/>
-  <strong>Loan</strong> – repayable financing with interest.<br/>
-  <strong>Tax Credit</strong> – reduces taxes based on eligible expenses.<br/>
-  <strong>Voucher or Rebate</strong> – discounts or partial refunds.<br/>
-  <strong>Equity or Investment</strong> – capital in exchange for ownership.<br/>
-  <strong>Other Financing</strong> – other financial products.
-</div>
-""",
-        unsafe_allow_html=True,
-    )
+    label = "What kind of funding are you looking for?"
+    with st.container():
+        st.markdown(
+            f"<div class='sidebar-section'><h3>{label}</h3></div>",
+            unsafe_allow_html=True,
+        )
+
+        session_key = "filter_funding_type"
+        if session_key not in st.session_state:
+            st.session_state[session_key] = []
+        selected = set(st.session_state[session_key])
+
+        for value, label_text in options:
+            is_on = value in selected
+            btn_label = f"● {label_text}" if is_on else label_text
+            if st.button(btn_label, key=f"{session_key}_{value}"):
+                if is_on:
+                    selected.remove(value)
+                else:
+                    selected.add(value)
+                st.session_state[session_key] = sorted(selected)
+                st.rerun()
+
+            # definition directly under this pill
+            defn = definitions.get(value)
+            if defn:
+                st.markdown(
+                    f"<div class='pill-def'>• {defn}</div>",
+                    unsafe_allow_html=True,
+                )
+
+        if selected:
+            if st.button("Clear", key="clear_filter_funding_type"):
+                st.session_state[session_key] = []
+                st.rerun()
 
 
 def render_chips(active_filters: Dict[str, List[str]]):
@@ -1192,13 +1211,11 @@ Use the website, email, phone, and favourite options to connect or save programs
             "filter_support",
         )
 
-        # 3. Location (kept at the bottom as-is later)
-
-        # 4. Funding type (with definitions below)
+        # 3. Funding type (with per-pill definitions)
         if funding_type_options:
             render_funding_type_pills(funding_type_options)
 
-        # 5. Funding amount
+        # 4. Funding amount
         if funding_bucket_options:
             render_filter_pills(
                 "How much funding are you looking for?",
@@ -1207,7 +1224,7 @@ Use the website, email, phone, and favourite options to connect or save programs
                 "filter_funding_bucket",
             )
 
-        # 6. Audience
+        # 5. Audience
         render_filter_pills(
             "Who is this support for?",
             "",
@@ -1215,7 +1232,7 @@ Use the website, email, phone, and favourite options to connect or save programs
             "filter_audience",
         )
 
-        # 7. Location at the bottom (unchanged)
+        # 6. Location at the bottom (unchanged)
         render_filter_pills(
             "Where is your business located?",
             "",
@@ -1267,11 +1284,16 @@ Use the website, email, phone, and favourite options to connect or save programs
         email_raw = str(row.get(COLS["EMAIL"]) or "").strip()
         phone_raw = str(row.get(COLS["PHONE"]) or "").strip()
 
+        # Treat typical placeholders as "no phone"
+        if phone_raw.lower() in {"nan", "none", "na", "n/a", "not available", "not listed", "no phone"}:
+            phone_raw = ""
+
         if (
             "not publicly listed" in phone_raw.lower()
             and "contact page" in phone_raw.lower()
         ):
             phone_raw = ""
+
         phone_display_multi = format_phone_multi(phone_raw)
         key = str(row.get(COLS["KEY"], f"k{i}"))
 
@@ -1349,7 +1371,6 @@ Use the website, email, phone, and favourite options to connect or save programs
         if email_href:
             actions.append(f'<a href="{html.escape(email_href)}">Email</a>')
         elif email_label:
-            # Show as muted text if not publicly listed
             actions.append(f'<span class="pf-action-muted">{html.escape(email_label)}</span>')
 
         if phone_display_multi:
@@ -1357,14 +1378,13 @@ Use the website, email, phone, and favourite options to connect or save programs
                 f'<span class="pf-action-muted">Call: {html.escape(phone_display_multi)}</span>'
             )
 
-        # Favourite – static for now (visual only)
+        # Favourite – static visual for now
         actions.append('<span class="pf-action-muted">&#9734; Favourite</span>')
 
         actions_html = ""
         if actions:
             actions_html = '<div class="pf-actions">' + " ".join(actions) + "</div>"
 
-        # Build full card HTML
         org_html = (
             f'<div class="program-org">{html.escape(org)}</div>' if org else ""
         )
