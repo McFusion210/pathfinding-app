@@ -1,5 +1,6 @@
 import os
 import re
+import html
 from collections import Counter
 from typing import Dict, List, Optional, Tuple, Set
 
@@ -20,6 +21,7 @@ st.set_page_config(
     page_icon="✅",
     layout="wide",
 )
+
 
 # ---------------------- STYLING / CHROME ----------------------
 
@@ -54,30 +56,30 @@ a:link, a:visited{
 .goa-header{
   background:#003366;
   color:#FFFFFF !important;
-  padding:8px 32px;
+  padding:12px 24px;
+}
+.goa-header-inner{
+  max-width:1200px;
+  margin:0 auto;
   display:flex;
   align-items:center;
-  gap:16px;
-  position:sticky;
-  top:0;
-  z-index:50;
+  gap:20px;
 }
 .goa-header *{
   color:#FFFFFF !important;
 }
 .goa-header-logo{
-  height:40px;
+  height:36px;
   width:auto;
-  object-fit:contain;
 }
-.goa-header-text h1{
-  font-size:20px;
-  margin:0;
+.goa-header-title{
+  font-size:21px;
   font-weight:600;
+  margin:0 0 2px 0;
 }
-.goa-header-text p{
-  margin:2px 0 0 0;
-  font-size:13px;
+.goa-header-subtitle{
+  margin:0;
+  font-size:14px;
   opacity:.9;
 }
 
@@ -91,15 +93,15 @@ a:link, a:visited{
 }
 
 /* Program cards (GoA blue box) */
-.pf-card-marker{
+.pf-card{
   border-radius:12px;
   border:1px solid #003366;
-  padding:16px 16px 14px 16px;
+  padding:16px 18px 14px 18px;
   background:#E6EFF7; /* light Alberta blue */
-  margin:10px 0 14px 0;
+  margin:10px 0 16px 0;
   box-shadow:0 1px 3px rgba(15,23,42,0.10);
 }
-.pf-card-marker:hover{
+.pf-card:hover{
   box-shadow:0 4px 10px rgba(15,23,42,0.18);
 }
 .badge{
@@ -156,20 +158,25 @@ h3.program-title{
   color:#6B7280;
   font-style:italic;
 }
-.actions-row{
-  margin-top:10px;
-}
-.pf-phone-line{
-  display:block;
-  margin-top:4px;
-  font-size:var(--fs-body);
-}
-.pf-phone-line strong{
-  font-weight:600;
-}
 .results-summary{
   font-size:var(--fs-meta);
   color:#4B5563;
+}
+
+/* Actions row inside card */
+.pf-actions{
+  margin-top:8px;
+  display:flex;
+  flex-wrap:wrap;
+  gap:18px;
+  font-size:var(--fs-body);
+}
+.pf-actions a{
+  color:#007FA3;
+  text-decoration:underline;
+}
+.pf-action-muted{
+  color:#6B7280;
 }
 
 /* Accessibility skip link */
@@ -186,7 +193,7 @@ h3.program-title{
   margin-top:6px;
 }
 .sidebar-section h3{
-  font-size:15px; /* headings larger than pills */
+  font-size:15px;
   font-weight:600;
   margin:0 0 4px 0;
 }
@@ -195,14 +202,24 @@ h3.program-title{
   font-size:12px;
 }
 
+/* Help box under funding types */
+.sidebar-help{
+  margin-top:6px;
+  padding:8px 10px;
+  background:#F3F4F6;
+  border-radius:8px;
+  border-left:3px solid #D1D5DB;
+  font-size:12px;
+}
+
 /* Base button font reset */
 .stButton > button{
-  font-size:14px;
+  font-size:13px;
 }
 
 /* Sidebar filter pills (single-column) */
 div[data-testid="stSidebar"] .stButton > button{
-  font-size:13px !important;  /* slightly smaller than headings */
+  font-size:13px !important;
   padding:8px 10px;
   margin:4px 0 0 0;
   border-radius:12px;
@@ -234,60 +251,39 @@ div[data-testid="stSidebar"] .stButton > button:focus{
   padding:4px 12px;
   margin:2px 4px 0 0;
   border-radius:999px;
-  border:1px solid #D1D5DB;
-  background:#E5E7EB;
-  color:#1F2937;
+  border:1px solid #BFDBFE;
+  background:#DBEAFE;
+  color:#1D4ED8;
   text-align:left;
 }
 .chips-row .stButton > button:hover{
-  background:#D1D5DB;
-}
-
-/* Funding type definitions block under pills */
-.funding-defs{
-  margin-top:4px;
-}
-.funding-defs dt{
-  font-weight:600;
-  font-size:12px;
-  margin-top:4px;
-}
-.funding-defs dd{
-  margin:0 0 2px 0;
-  font-size:12px;
-  color:#4B5563;
+  background:#BFDBFE;
 }
 
 /* Links inside cards */
-.pf-card-marker a{
-  color:#007FA3 !important;
+.pf-card a{
+  color:#007FA3;
   text-decoration:underline;
 }
-.pf-card-marker a:hover{
+.pf-card a:hover{
   opacity:.85;
 }
 
-/* Buttons inside cards treated as text links (Call, Favourite) */
-.pf-card-marker .stButton > button{
-  background:none !important;
-  border:none !important;
-  padding:0;
-  margin:0 16px 0 0;
-  color:#007FA3 !important;
-  text-decoration:underline;
-  font-size:var(--fs-body);
-  cursor:pointer;
-  box-shadow:none !important;
-  border-radius:0 !important;
-}
-.pf-card-marker .stButton > button:hover{
-  opacity:.85;
+/* Search bar – darker border */
+div[data-testid="stTextInput"] input{
+  border:2px solid #9CA3AF !important;
+  border-radius:999px !important;
 }
 
-/* Search bar border */
-[data-testid="stTextInput"] input{
-  border:1px solid #9CA3AF;
-  box-shadow:none;
+/* Make section headings slightly larger than pills in sidebar */
+div[data-testid="stSidebar"] h2, 
+div[data-testid="stSidebar"] h3{
+  font-size:15px !important;
+}
+
+/* Funding bands – keep consistent style */
+.funding-band-label{
+  font-style:normal;
 }
 </style>
         """,
@@ -296,19 +292,22 @@ div[data-testid="stSidebar"] .stButton > button:focus{
 
 
 def embed_logo_html() -> None:
-    # Using hosted SVG so it works the same in Streamlit Cloud and locally
+    # Using GitHub-hosted SVG for consistency; you can swap this for a local static path if desired.
     logo_url = (
-        "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f5/"
-        "Alberta_Government_Logo.svg/320px-Alberta_Government_Logo.svg.png"
+        "https://raw.githubusercontent.com/McFusion210/pathfinding-app/main/assets/GoA-logo.svg"
     )
     st.markdown(
         f"""
 <a href="#main" class="skip-link">Skip to main content</a>
 <div class="goa-header">
-  <img src="{logo_url}" alt="Government of Alberta" class="goa-header-logo" />
-  <div class="goa-header-text">
-    <h1>Small Business Supports Finder</h1>
-    <p>Helping Alberta entrepreneurs and small businesses find programs, funding, and services quickly.</p>
+  <div class="goa-header-inner">
+    <img src="{logo_url}" alt="Government of Alberta" class="goa-header-logo" />
+    <div>
+      <div class="goa-header-title">Small Business Supports Finder</div>
+      <div class="goa-header-subtitle">
+        Helping Alberta entrepreneurs and small businesses find programs, funding, and services quickly.
+      </div>
+    </div>
   </div>
 </div>
 <div id="main" class="app-shell">
@@ -345,6 +344,14 @@ def sanitize_text_keep_smart(s: str) -> str:
     s = re.sub(r"[\u2700-\u27BF]", " ", s)
     s = re.sub(r"\s+", " ", s).strip()
     return s
+
+
+def truncate_for_card(text: str, limit: int = 260) -> str:
+    text = sanitize_text_keep_smart(text or "")
+    if len(text) <= limit:
+        return text
+    short = text[:limit].rsplit(" ", 1)[0]
+    return short + "..."
 
 
 URL_LIKE = re.compile(r"https?://|www\.|\.ca\b|\.com\b|\.org\b", re.I)
@@ -448,22 +455,12 @@ def add_dollar_signs(bucket: str) -> str:
 
 
 def normalize_phone(phone: str) -> Tuple[str, str]:
-    """Return display and tel: urls. Empty strings mean 'no phone'."""
-    if phone is None:
+    if not phone:
         return "", ""
-    # Handle NaN-like values early
-    if isinstance(phone, float) and pd.isna(phone):
-        return "", ""
-    s_raw = str(phone).strip()
-    if not s_raw:
-        return "", ""
-    if s_raw.lower() in {"nan", "n/a", "na", "not available"}:
-        return "", ""
-
-    s = re.sub(r"[^\d+]", "", s_raw)
+    s = re.sub(r"[^\d+]", "", phone)
     digits = re.sub(r"\D", "", s)
     if not digits:
-        return "", ""
+        return phone, phone
     country = ""
     if digits.startswith("1") and len(digits) == 11:
         country = "1"
@@ -471,31 +468,23 @@ def normalize_phone(phone: str) -> Tuple[str, str]:
     elif len(digits) == 10:
         country = "1"
     else:
-        # non-standard length – do not treat as a valid phone for Call
-        return "", ""
+        return phone, (digits or phone)
     display = f"{digits[0:3]}-{digits[3:6]}-{digits[6:10]}"
     tel = f"+{country}{digits}"
     return display, tel
 
 
 def format_phone_multi(phone: str) -> str:
-    if phone is None:
+    if not phone:
         return ""
-    # Handle NaN and placeholders
-    if isinstance(phone, float) and pd.isna(phone):
-        return ""
-    s = str(phone).strip()
-    if not s or s.lower() in {"nan", "n/a", "na", "not available"}:
-        return ""
-    chunks = re.split(r"[,/;]|\bor\b", s)
+    chunks = re.split(r"[,/;]|\bor\b", str(phone))
     parts = []
     for ch in chunks:
         ch = ch.strip()
         if not ch:
             continue
         display, _tel = normalize_phone(ch)
-        if display:
-            parts.append(display)
+        parts.append(display or ch)
     return " | ".join(parts)
 
 
@@ -523,47 +512,10 @@ def parse_email_field(raw: str) -> Tuple[str, str]:
     return s, ""
 
 
-# ---------------------- DISPLAY HELPERS ----------------------
-
-
-def render_description(desc_full: str, key: str) -> None:
-    desc_full = sanitize_text_keep_smart(desc_full or "")
-    if not desc_full:
-        st.markdown(
-            "<p class='placeholder'>No description available.</p>",
-            unsafe_allow_html=True,
-        )
-        return
-    short = desc_full
-    limit = 260
-    if len(desc_full) > limit:
-        short = desc_full[:limit].rsplit(" ", 1)[0] + "..."
-    state_key = f"show_more_{key}"
-    if state_key not in st.session_state:
-        st.session_state[state_key] = False
-    if st.session_state[state_key]:
-        st.markdown(
-            f"<p class='program-desc'>{desc_full}</p>", unsafe_allow_html=True
-        )
-        if st.button("Show less", key=f"less_{key}"):
-            st.session_state[state_key] = False
-            st.rerun()
-    else:
-        st.markdown(
-            f"<p class='program-desc'>{short}</p>", unsafe_allow_html=True
-        )
-        if len(desc_full) > limit:
-            if st.button("Show more", key=f"more_{key}"):
-                st.session_state[state_key] = True
-                st.rerun()
-
-
 # ---------------------- COLUMN INFERENCE ----------------------
 
 
-def map_col(
-    df: pd.DataFrame, candidates: List[str], default: Optional[str] = None
-) -> str:
+def map_col(df: pd.DataFrame, candidates: List[str], default: Optional[str] = None) -> str:
     cols = [c for c in df.columns if isinstance(c, str)]
     low = {c.lower(): c for c in cols}
     for cand in candidates:
@@ -708,43 +660,13 @@ def classify_stage(tags: List[str]) -> List[str]:
     lower = "; ".join(tags).lower()
     cats: Set[str] = set()
 
-    if any(
-        k in lower
-        for k in [
-            "idea stage",
-            "idea-stage",
-            "pre-start",
-            "pre start",
-            "pre-startup",
-            "prestartup",
-        ]
-    ):
+    if any(k in lower for k in ["idea stage", "idea-stage", "pre-start", "pre start", "pre-startup", "prestartup"]):
         cats.add("Idea or Pre Startup")
 
-    if any(
-        k in lower
-        for k in [
-            "early stage",
-            "start-up",
-            "startup",
-            "new business",
-            "first three years",
-            "0-3 years",
-            "0 to 3 years",
-        ]
-    ):
+    if any(k in lower for k in ["early stage", "start-up", "startup", "new business", "first three years", "0-3 years", "0 to 3 years"]):
         cats.add("Startup – Operating Less Than 3 Years")
 
-    if any(
-        k in lower
-        for k in [
-            "established",
-            "mature",
-            "3+ years",
-            "three or more years",
-            "5+ years",
-        ]
-    ):
+    if any(k in lower for k in ["established", "mature", "3+ years", "three or more years", "5+ years"]):
         cats.add("Established – 3 or More Years in Business")
 
     if any(k in lower for k in ["scale up", "scale-up", "scaling", "growth stage", "expansion"]):
@@ -1030,8 +952,7 @@ def render_filter_pills(
     """Pill style filters that store clean values but display labels with counts."""
     with st.container():
         st.markdown(
-            f"<div class='sidebar-section'><h3>{label}</h3>"
-            f"<small>{help_text}</small></div>",
+            f"<div class='sidebar-section'><h3>{label}</h3><small>{help_text}</small></div>",
             unsafe_allow_html=True,
         )
         if session_key not in st.session_state:
@@ -1041,10 +962,7 @@ def render_filter_pills(
         # Single-column layout: each button on its own row
         for value, label_text in options:
             is_on = value in selected
-            btn_label = label_text
-            if is_on:
-                # Light visual cue in the label itself
-                btn_label = "● " + label_text
+            btn_label = f"● {label_text}" if is_on else label_text
             if st.button(btn_label, key=f"{session_key}_{value}"):
                 if is_on:
                     selected.remove(value)
@@ -1060,30 +978,26 @@ def render_filter_pills(
 
 
 def render_funding_type_pills(options: List[Tuple[str, str]]):
-    # Short inline help; main definitions moved below as a tidy list
+    # 1) Pills (no long help text)
     render_filter_pills(
         label="What kind of funding are you looking for?",
-        help_text="Select one or more funding types.",
+        help_text="",
         options=options,
         session_key="filter_funding_type",
     )
 
+    # 2) Definitions just below the pills
     st.markdown(
         """
-<dl class="funding-defs">
-  <dt>Grant</dt>
-  <dd>Non repayable funding.</dd>
-  <dt>Loan</dt>
-  <dd>Repayable financing with interest.</dd>
-  <dt>Tax Credit</dt>
-  <dd>Reduces taxes based on eligible expenses.</dd>
-  <dt>Voucher or Rebate</dt>
-  <dd>Discounts or partial refunds.</dd>
-  <dt>Equity or Investment</dt>
-  <dd>Capital in exchange for ownership.</dd>
-  <dt>Other Financing</dt>
-  <dd>Other financial products.</dd>
-</dl>
+<div class="sidebar-help">
+  <strong>Funding types</strong><br/>
+  <strong>Grant</strong> – non repayable funding.<br/>
+  <strong>Loan</strong> – repayable financing with interest.<br/>
+  <strong>Tax Credit</strong> – reduces taxes based on eligible expenses.<br/>
+  <strong>Voucher or Rebate</strong> – discounts or partial refunds.<br/>
+  <strong>Equity or Investment</strong> – capital in exchange for ownership.<br/>
+  <strong>Other Financing</strong> – other financial products.
+</div>
 """,
         unsafe_allow_html=True,
     )
@@ -1166,9 +1080,6 @@ Scroll through cards that match your selections."""
 Use the website, email, phone, and favourite options to connect or save programs."""
         )
 
-    if "favorites" not in st.session_state:
-        st.session_state.favorites = set()
-
     col_search, col_sort, col_page = st.columns([3, 1, 1])
     with col_search:
         st.text_input(
@@ -1232,14 +1143,15 @@ Use the website, email, phone, and favourite options to connect or save programs
         "Over 500K",
         UNKNOWN,
     ]
-    funding_bucket_options = [
-        (
-            b,
-            f"{add_dollar_signs(b) if b != UNKNOWN else 'Unknown / not stated'} ({bucket_counts.get(b, 0)})",
-        )
-        for b in funding_bucket_values
-        if bucket_counts.get(b, 0) > 0
-    ]
+    funding_bucket_options = []
+    for b in funding_bucket_values:
+        count = bucket_counts.get(b, 0)
+        if count > 0:
+            if b == UNKNOWN:
+                label = f"Unknown / not stated ({count})"
+            else:
+                label = f"{add_dollar_signs(b)} ({count})"
+            funding_bucket_options.append((b, label))
 
     fund_type_counts = Counter()
     for s in df["__fund_type_set"]:
@@ -1280,15 +1192,9 @@ Use the website, email, phone, and favourite options to connect or save programs
             "filter_support",
         )
 
-        # 3. Location – keep at the bottom of the structural filters
-        render_filter_pills(
-            "Where is your business located?",
-            "",
-            region_options,
-            "filter_region",
-        )
+        # 3. Location (kept at the bottom as-is later)
 
-        # 4. Funding type (with definitions under the pills)
+        # 4. Funding type (with definitions below)
         if funding_type_options:
             render_funding_type_pills(funding_type_options)
 
@@ -1307,6 +1213,14 @@ Use the website, email, phone, and favourite options to connect or save programs
             "",
             audience_options,
             "filter_audience",
+        )
+
+        # 7. Location at the bottom (unchanged)
+        render_filter_pills(
+            "Where is your business located?",
+            "",
+            region_options,
+            "filter_region",
         )
 
     filtered, active_filters = apply_filters(df)
@@ -1339,8 +1253,8 @@ Use the website, email, phone, and favourite options to connect or save programs
 
     subset = filtered.iloc[start:end].copy()
     for i, (_, row) in enumerate(subset.iterrows(), 1):
-        name = str(row[COLS["PROGRAM_NAME"]] or "")
-        org = str(row[COLS["ORGANIZATION"]] or "")
+        name = sanitize_text_keep_smart(str(row[COLS["PROGRAM_NAME"]] or ""))
+        org = sanitize_text_keep_smart(str(row[COLS["ORGANIZATION"]] or ""))
         desc_full = str(row[COLS["DESCRIPTION"]] or "")
         status = str(row[COLS["STATUS"]] or "")
         fund_bucket_val = str(row.get("__funding_bucket") or "")
@@ -1351,14 +1265,17 @@ Use the website, email, phone, and favourite options to connect or save programs
 
         website = str(row.get(COLS["WEBSITE"]) or "").strip()
         email_raw = str(row.get(COLS["EMAIL"]) or "").strip()
-        phone_raw = row.get(COLS["PHONE"])
+        phone_raw = str(row.get(COLS["PHONE"]) or "").strip()
 
-        # Normalise phone and remove NaN / unusable values
+        if (
+            "not publicly listed" in phone_raw.lower()
+            and "contact page" in phone_raw.lower()
+        ):
+            phone_raw = ""
         phone_display_multi = format_phone_multi(phone_raw)
         key = str(row.get(COLS["KEY"], f"k{i}"))
 
-        st.markdown("<div class='pf-card-marker'>", unsafe_allow_html=True)
-
+        # Badge
         badge_cls = "badge-open"
         badge_label = "Operational"
         if "closed" in status.lower():
@@ -1368,21 +1285,9 @@ Use the website, email, phone, and favourite options to connect or save programs
             badge_cls = "badge-paused"
             badge_label = "Paused"
 
-        st.markdown(
-            f"""
-<span class='badge {badge_cls}'>{badge_label}</span>
-<span class='meta'>Last checked: {fresh_date if fresh_date else "Not available"} - {fresh_label}</span>
-""",
-            unsafe_allow_html=True,
-        )
-
-        st.markdown(f"<h3 class='program-title'>{name}</h3>", unsafe_allow_html=True)
-        if org:
-            st.markdown(
-                f"<div class='program-org'>{org}</div>", unsafe_allow_html=True
-            )
-
-        render_description(desc_full, key)
+        # Description (truncated, plain HTML-safe)
+        desc_short = truncate_for_card(desc_full)
+        desc_html = html.escape(desc_short)
 
         # Funding amount display logic
         fund_raw = sanitize_text_keep_smart(
@@ -1399,12 +1304,12 @@ Use the website, email, phone, and favourite options to connect or save programs
             fund_type_label = ", ".join(sorted(fund_type_set))
 
         if fund_label:
-            fund_line = f'<span class="kv"><strong>Funding available:</strong> {fund_label}</span>'
+            fund_line = f'<span class="kv"><strong>Funding available:</strong> {html.escape(fund_label)}</span>'
         else:
             fund_line = ""
 
         fund_type_line = (
-            f'<span class="kv"><strong>Funding type:</strong> {fund_type_label}</span>'
+            f'<span class="kv"><strong>Funding type:</strong> {html.escape(fund_type_label)}</span>'
             if fund_type_label
             else ""
         )
@@ -1412,15 +1317,13 @@ Use the website, email, phone, and favourite options to connect or save programs
         elig_text = drop_url_like(
             sanitize_text_keep_smart(str(row.get(COLS["ELIGIBILITY"]) or ""))
         )
-        elig_line = (
-            f'<span class="kv"><strong>Eligibility highlights:</strong> {elig_text}</span>'
-            if (
-                elig_text
-                and "description pending" not in elig_text.lower()
-                and "see website" not in elig_text.lower()
-            )
-            else ""
-        )
+        elig_line = ""
+        if (
+            elig_text
+            and "description pending" not in elig_text.lower()
+            and "see website" not in elig_text.lower()
+        ):
+            elig_line = f'<span class="kv"><strong>Eligibility highlights:</strong> {html.escape(elig_text)}</span>'
 
         meta_html_parts = [p for p in [fund_line, fund_type_line, elig_line] if p]
         if meta_html_parts:
@@ -1431,67 +1334,55 @@ Use the website, email, phone, and favourite options to connect or save programs
                 '<p class="placeholder">Funding or eligibility details are not available in this view.</p>'
             )
 
-        st.markdown(meta_html, unsafe_allow_html=True)
+        # Actions
+        actions: List[str] = []
 
-        # Actions row
-        st.markdown("<div class='actions-row'>", unsafe_allow_html=True)
-        cols_actions = st.columns(4)
-        call_clicked = False
-        fav_clicked = False
+        if website:
+            url = (
+                website
+                if website.startswith(("http://", "https://"))
+                else f"https://{website}"
+            )
+            actions.append(f'<a href="{html.escape(url)}" target="_blank" rel="noopener">Website</a>')
 
-        with cols_actions[0]:
-            if website:
-                url = (
-                    website
-                    if website.startswith(("http://", "https://"))
-                    else f"https://{website}"
-                )
-                st.markdown(f"[Website]({url})", unsafe_allow_html=True)
-
-        with cols_actions[1]:
-            email_label, email_href = parse_email_field(email_raw)
-            if email_label:
-                if email_href:
-                    st.markdown(
-                        f"[{email_label}]({email_href})", unsafe_allow_html=True
-                    )
-                else:
-                    st.markdown(
-                        f"<span class='placeholder'>{email_label}</span>",
-                        unsafe_allow_html=True,
-                    )
-
-        with cols_actions[2]:
-            if phone_display_multi:
-                call_clicked = st.button("Call", key=f"call_{key}")
-
-        with cols_actions[3]:
-            fav_on = key in st.session_state.favorites
-            fav_label = "★ Favourite" if fav_on else "☆ Favourite"
-            fav_clicked = st.button(fav_label, key=f"fav_{key}")
-
-        st.markdown("</div>", unsafe_allow_html=True)
+        email_label, email_href = parse_email_field(email_raw)
+        if email_href:
+            actions.append(f'<a href="{html.escape(email_href)}">Email</a>')
+        elif email_label:
+            # Show as muted text if not publicly listed
+            actions.append(f'<span class="pf-action-muted">{html.escape(email_label)}</span>')
 
         if phone_display_multi:
-            call_state_key = f"show_call_{key}"
-            if call_clicked:
-                st.session_state[call_state_key] = not st.session_state.get(
-                    call_state_key, False
-                )
-            if st.session_state.get(call_state_key, False):
-                st.markdown(
-                    f"<small class='pf-phone-line'><strong>Phone:</strong> {phone_display_multi}</small>",
-                    unsafe_allow_html=True,
-                )
+            actions.append(
+                f'<span class="pf-action-muted">Call: {html.escape(phone_display_multi)}</span>'
+            )
 
-        if fav_clicked:
-            if fav_on:
-                st.session_state.favorites.remove(key)
-            else:
-                st.session_state.favorites.add(key)
-            st.rerun()
+        # Favourite – static for now (visual only)
+        actions.append('<span class="pf-action-muted">&#9734; Favourite</span>')
 
-        st.markdown("</div>", unsafe_allow_html=True)
+        actions_html = ""
+        if actions:
+            actions_html = '<div class="pf-actions">' + " ".join(actions) + "</div>"
+
+        # Build full card HTML
+        org_html = (
+            f'<div class="program-org">{html.escape(org)}</div>' if org else ""
+        )
+
+        card_html = f"""
+<div class="pf-card">
+  <div>
+    <span class="badge {badge_cls}">{badge_label}</span>
+    <span class="meta">Last checked: {html.escape(fresh_date) if fresh_date else "Not available"} - {html.escape(fresh_label)}</span>
+  </div>
+  <h3 class="program-title">{html.escape(name)}</h3>
+  {org_html}
+  <p class="program-desc">{desc_html}</p>
+  {meta_html}
+  {actions_html}
+</div>
+"""
+        st.markdown(card_html, unsafe_allow_html=True)
 
     close_shell()
 
