@@ -14,7 +14,6 @@ FUZZY_THR = 60
 # Global column map, filled in main()
 COLS: Dict[str, str] = {}
 
-
 # ------------------------- CSS AND LAYOUT -------------------------
 
 
@@ -23,116 +22,117 @@ def embed_css() -> None:
         """
 <style>
 :root{
-  --bg:#FFFFFF; --surface:#FFFFFF; --text:#0A0A0A; --muted:#4B5563;
-  --border:#E5E7EB; --border-subtle:#E5E7EB;
-  --primary:#003366; --primary-soft:#E5EDF7;
-  --accent:#0077C8; --accent-soft:#E0F2FE;
-  --danger:#991B1B; --danger-soft:#FEE2E2;
-  --success:#166534; --success-soft:#DCFCE7;
-  --pill-bg:#F9FAFB; --pill-on:#003366; --pill-on-text:#FFFFFF;
-  --shadow-sm:0 1px 2px rgba(15,23,42,0.08);
-  --shadow-md:0 4px 6px rgba(15,23,42,0.08);
-  --radius-lg:12px; --radius-xl:16px; --radius-pill:999px;
-  --header-height:56px;
+  --bg:#F3F4F6;
+  --surface:#FFFFFF;
+  --text:#111827;
+  --muted:#4B5563;
+  --border:#D1D5DB;
+  --primary:#003366;
+  --primary-soft:#E6EFF7;
+  --accent:#0077C8;
+  --accent-soft:#E0F2FE;
+  --danger-soft:#FEE2E2;
+  --success-soft:#DCFCE7;
+  --shadow-sm:0 1px 3px rgba(15,23,42,0.12);
+  --shadow-md:0 4px 8px rgba(15,23,42,0.16);
+  --radius-lg:12px;
+  --radius-xl:16px;
 }
 
-html, body, [data-testid="stAppViewContainer"]{
+/* Global reset */
+html, body{
   background:var(--bg);
   color:var(--text);
   font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
 }
-
-/* Remove default Streamlit padding */
 main.block-container{
   padding-top:0.5rem;
   padding-bottom:1.5rem;
 }
 
-/* GoA style header bar */
+/* Normalise links */
+a, a:visited{
+  color:#1D4ED8;
+}
+a:hover{
+  text-decoration:underline;
+}
+
+/* Hide default Streamlit header bar */
+header[data-testid="stHeader"]{
+  display:none;
+}
+
+/* GoA-style header */
 .goa-header{
   background:#003366;
   color:#FFFFFF;
-  height:var(--header-height);
+  padding:10px 24px;
   display:flex;
   align-items:center;
-  padding:0 1.5rem;
-  box-shadow:0 1px 2px rgba(15,23,42,0.35);
-  position:sticky;
-  top:0;
-  z-index:999;
+  box-shadow:0 1px 3px rgba(15,23,42,0.4);
 }
 .goa-header-inner{
   display:flex;
   align-items:center;
-  gap:1rem;
+  gap:12px;
 }
 .goa-logo-wrap{
   display:flex;
   align-items:center;
-  gap:0.5rem;
-}
-.goa-logo-text{
-  font-size:0.9rem;
-  letter-spacing:0.06em;
-  text-transform:uppercase;
-  opacity:0.9;
+  gap:6px;
 }
 .goa-header-title-block{
   display:flex;
   flex-direction:column;
 }
 .goa-header-title{
-  font-size:1.05rem;
+  font-size:18px;
   font-weight:600;
 }
 .goa-header-sub{
-  font-size:0.8rem;
+  font-size:12px;
   opacity:0.9;
 }
 
-/* Top hero section */
-.hero-shell{
-  margin-top:1.25rem;
-  margin-bottom:0.75rem;
+/* App shell background */
+.app-shell{
+  margin-top:10px;
+  padding:18px 24px 28px 24px;
+  background:#F3F4F6;
 }
+
+/* Hero / instruction row */
 .hero-steps{
-  font-size:0.9rem;
+  font-size:14px;
   color:#111827;
 }
-
-/* Search tip */
-.tip-pill{
-  background:#EFF6FF;
-  color:#1D4ED8;
-  border-radius:var(--radius-lg);
-  padding:0.6rem 0.75rem;
-  font-size:0.8rem;
-  border:1px solid #BFDBFE;
-  margin-top:0.4rem;
+.hero-steps p{
+  margin:0;
 }
 
-/* Search bar */
+/* Search bar styling */
 .search-shell{
-  margin:0.5rem 0 0.5rem 0;
+  margin-top:6px;
 }
-.search-shell .stTextInput>div>div input{
+.search-shell .stTextInput>div>div{
   border-radius:999px;
   border:1px solid #CBD5E1;
-  font-size:0.9rem;
-  padding:0.5rem 0.85rem;
 }
-.search-shell .stTextInput>div>div input:focus{
+.search-shell .stTextInput>div>div input{
+  font-size:14px;
+  padding:8px 10px;
+}
+.search-shell .stTextInput>div>div:focus-within{
   border-color:#2563EB;
   box-shadow:0 0 0 1px #2563EB;
 }
 
-/* Sort and page size row */
-.meta-row{
-  margin-top:0.4rem;
-  margin-bottom:0.4rem;
-}
-.meta-row label{
-  font-size:0.8rem !important;
+/* Results summary */
+.results-summary{
+  font-size:13px;
+  color:#4B5563;
+  margin:4px 0 2px 0;
 }
 
 /* Sidebar */
@@ -141,35 +141,29 @@ main.block-container{
   border-right:1px solid #E5E7EB;
 }
 [data-testid="stSidebar"]>div:first-child{
-  padding-top:1rem;
+  padding-top:14px;
 }
-.sidebar-section{
-  padding-bottom:1.2rem;
-  border-bottom:1px solid #E5E7EB;
-  margin-bottom:1rem;
-}
-.sidebar-section h3{
-  font-size:15px;
-  font-weight:600;
-  margin-bottom:0.25rem;
-}
-.sidebar-section .hint{
-  font-size:0.8rem;
-  color:#6B7280;
-  margin-bottom:0.35rem;
-}
-.sidebar-section .hint-strong{
-  font-size:0.8rem;
-  color:#111827;
-}
-
-/* Tiny uppercase label above groups */
 .sidebar-label{
   text-transform:uppercase;
   letter-spacing:0.06em;
-  font-size:0.7rem;
+  font-size:11px;
   color:#6B7280;
-  margin-bottom:0.25rem;
+  margin-bottom:4px;
+}
+.sidebar-section{
+  padding:0 2px 14px 2px;
+  border-bottom:1px solid #E5E7EB;
+  margin-bottom:14px;
+}
+.sidebar-section h3{
+  font-size:15px; /* headings larger than pills */
+  font-weight:600;
+  margin:0 0 4px 0;
+}
+.sidebar-section .hint{
+  color:#6B7280;
+  font-size:12px;
+  margin:0 0 4px 0;
 }
 
 /* Base button font reset */
@@ -179,7 +173,7 @@ main.block-container{
 
 /* Sidebar filter pills (single-column) */
 div[data-testid="stSidebar"] .stButton > button{
-  font-size:13px !important;
+  font-size:13px !important;  /* slightly smaller than headings */
   padding:8px 10px;
   margin:4px 0 0 0;
   border-radius:12px;
@@ -203,13 +197,13 @@ div[data-testid="stSidebar"] .stButton > button:focus{
 .active-filters{
   display:flex;
   flex-wrap:wrap;
-  gap:0.25rem;
-  margin:0.2rem 0 0.5rem 0;
+  gap:4px;
+  margin:2px 0 8px 0;
 }
 .filter-chip{
   border-radius:999px;
-  padding:0.2rem 0.5rem;
-  font-size:0.75rem;
+  padding:2px 8px;
+  font-size:11px;
   border:1px solid #CBD5E1;
   background:#EEF2FF;
   color:#111827;
@@ -217,53 +211,48 @@ div[data-testid="stSidebar"] .stButton > button:focus{
 
 /* Funding definitions text under pills */
 .funding-defs{
-  margin-top:0.4rem;
-  padding:0.5rem 0.25rem 0.1rem 0.25rem;
+  margin-top:6px;
+  padding-top:6px;
   border-top:1px solid #E5E7EB;
 }
 .funding-defs dt{
   font-weight:600;
-  font-size:0.8rem;
-  margin-top:0.25rem;
+  font-size:12px;
+  margin-top:3px;
 }
 .funding-defs dd{
   margin-left:0;
-  font-size:0.78rem;
+  font-size:11px;
   color:#4B5563;
 }
 
-/* Program card shell */
+/* Program card shell – GoA blue box */
 .card-shell{
-  margin-top:0.5rem;
+  margin-top:8px;
 }
 .card-marker{
-  border-radius:14px;
-  border:1px solid #E5E7EB;
-  box-shadow:var(--shadow-sm);
-  background:#FFFFFF;
-  padding:0.85rem 1rem 0.7rem 1rem;
-  margin-bottom:0.8rem;
-  display:flex;
-  flex-direction:column;
-  gap:0.35rem;
+  border-radius:12px;
+  border:1px solid #003366;
+  padding:16px 16px 14px 16px;
+  background:#E6EFF7; /* light Alberta blue */
+  margin:10px 0 14px 0;
+  box-shadow:0 1px 3px rgba(15,23,42,0.10);
 }
-
-/* Status row */
 .card-status-row{
   display:flex;
   align-items:center;
   justify-content:space-between;
-  gap:0.5rem;
-  font-size:0.78rem;
-  color:#6B7280;
+  gap:8px;
+  font-size:11px;
+  color:#374151;
 }
 .status-pill{
   display:inline-flex;
   align-items:center;
   justify-content:center;
-  padding:0.15rem 0.6rem;
+  padding:2px 8px;
   border-radius:999px;
-  font-size:0.75rem;
+  font-size:11px;
   font-weight:500;
 }
 .status-op{
@@ -279,139 +268,105 @@ div[data-testid="stSidebar"] .stButton > button:focus{
   color:#991B1B;
 }
 .fresh-chip{
-  padding:0.1rem 0.45rem;
+  padding:2px 7px;
   border-radius:999px;
   background:#EFF6FF;
   color:#1D4ED8;
-  font-size:0.72rem;
+  font-size:11px;
 }
 
-/* Program title and org */
+/* Program title + org */
 .card-title{
-  font-size:0.98rem;
+  font-size:15px;
   font-weight:600;
-  color:#111827;
+  margin-top:4px;
 }
 .card-org{
-  font-size:0.83rem;
-  color:#4B5563;
+  font-size:13px;
+  color:#374151;
 }
 
-/* Description with show more */
+/* Description */
 .card-desc{
-  font-size:0.85rem;
+  font-size:13px;
   color:#111827;
-  margin-top:0.1rem;
+  margin-top:4px;
 }
 .showmore-btn{
-  font-size:0.78rem;
+  font-size:12px;
   color:#1D4ED8;
-  cursor:pointer;
 }
 
-/* Meta strip under description */
+/* Meta strip */
 .card-meta-row{
   display:flex;
   flex-wrap:wrap;
-  gap:0.25rem 0.75rem;
-  font-size:0.76rem;
-  color:#4B5563;
-  margin-top:0.1rem;
+  gap:4px 10px;
+  font-size:12px;
+  color:#374151;
+  margin-top:4px;
 }
 .meta-label{
   font-weight:600;
-  color:#374151;
 }
 
 /* Tag chips */
 .tag-row{
   display:flex;
   flex-wrap:wrap;
-  gap:0.2rem;
-  margin-top:0.15rem;
+  gap:3px;
+  margin-top:4px;
 }
 .tag-chip{
   border-radius:999px;
-  padding:0.1rem 0.45rem;
-  font-size:0.72rem;
-  border:1px solid #E5E7EB;
+  padding:2px 7px;
+  font-size:11px;
+  border:1px solid #CBD5E1;
   background:#F9FAFB;
   color:#4B5563;
 }
 
 /* Card actions row */
 .card-actions{
-  margin-top:0.35rem;
-  padding-top:0.4rem;
-  border-top:1px dashed #E5E7EB;
+  margin-top:6px;
+  padding-top:6px;
+  border-top:1px dashed #D1D5DB;
 }
 .card-actions-inner{
   display:flex;
   flex-wrap:wrap;
-  gap:0.5rem;
+  gap:6px;
   align-items:center;
-  justify-content:flex-start;
 }
 .card-actions-inner .stButton>button{
   border-radius:999px;
-  padding:0.25rem 0.75rem;
-  font-size:0.8rem !important;
+  padding:4px 10px;
+  font-size:12px !important;
   border:1px solid #D1D5DB;
-  background:#F9FAFB;
+  background:#FFFFFF;
 }
 .card-actions-inner .stButton>button:hover{
   border-color:#9CA3AF;
   background:#EFF6FF;
 }
 
-/* Results summary row */
-.results-summary{
-  font-size:0.85rem;
-  color:#4B5563;
-  margin:0.25rem 0 0.2rem 0;
-}
-
-/* Small helper text in body */
+/* Small helper text */
 .helper-text{
-  font-size:0.8rem;
+  font-size:11px;
+  color:#374151;
+  margin-top:2px;
+}
+
+/* Sidebar note text */
+.location-note{
+  font-size:12px;
   color:#6B7280;
-  margin-top:0.15rem;
+  margin-top:10px;
 }
 
-/* Hide default header */
-header[data-testid="stHeader"]{
-  display:none;
-}
-
-/* Adjust sidebar width */
-@media (min-width: 1024px){
-  [data-testid="stSidebar"]{
-    min-width:280px;
-    max-width:280px;
-  }
-}
-
-/* Tweak selectboxes */
+/* Selectboxes rounded */
 .stSelectbox>div>div{
   border-radius:999px;
-}
-
-/* Footer spacing */
-footer{
-  margin-top:1.5rem;
-}
-
-/* Small grey text */
-.small-grey{
-  font-size:0.76rem;
-  color:#6B7280;
-}
-
-/* Location text under sidebar */
-.location-note{
-  font-size:0.78rem;
-  color:#6B7280;
-  margin-top:0.75rem;
 }
 </style>
         """,
@@ -426,8 +381,10 @@ def embed_logo_html() -> None:
   <div class="goa-header-inner">
     <div class="goa-logo-wrap">
       <img src="https://upload.wikimedia.org/wikipedia/commons/8/89/Alberta_Wordmark_Logo.svg"
-           alt="Alberta" height="26">
-      <span class="goa-logo-text">Government of Alberta</span>
+           alt="Alberta" height="28">
+      <span style="font-size:11px;letter-spacing:0.06em;text-transform:uppercase;opacity:0.9;">
+        Government of Alberta
+      </span>
     </div>
     <div class="goa-header-title-block">
       <div class="goa-header-title">Small Business Supports Finder</div>
@@ -518,8 +475,8 @@ def days_since(value) -> Tuple[Optional[int], Optional[str]]:
         return None, None
     delta = (pd.Timestamp("today").normalize() - d.normalize()).days
     if delta < 0:
-        return None, d.strftime("%Y %b %d")
-    return int(delta), d.strftime("%Y %b %d")
+        return None, None
+    return int(delta), d.strftime("%Y-%m-%d")
 
 
 def funding_bucket(value) -> str:
@@ -760,62 +717,45 @@ def build_active_filter_labels(
 PHONE_CLEAN = re.compile(r"[^\d]+")
 
 
-def normalize_phone(raw: str) -> Optional[str]:
+def normalize_phone(raw) -> Tuple[str, str]:
+    """Return display and tel: url. Empty strings mean 'no phone'."""
     if raw is None:
-        return None
-    if isinstance(raw, float) and np.isnan(raw):
-        return None
-    s = str(raw).strip()
-    if not s or s.lower() in {"nan", "n/a", "na", "none", "not listed"}:
-        return None
-
-    digits = PHONE_CLEAN.sub("", s)
-    if len(digits) == 11 and digits.startswith("1"):
-        digits = digits[1:]
-    if len(digits) != 10:
-        return None
-    return digits
-
-
-def format_phone(digits: str) -> str:
-    if len(digits) != 10:
-        return digits
-    return f"{digits[0:3]}-{digits[3:6]}-{digits[6:10]}"
-
-
-def extract_phone_list(raw_value) -> List[str]:
-    if raw_value is None:
-        return []
-    if isinstance(raw_value, float) and np.isnan(raw_value):
-        return []
-    s = str(raw_value)
-    if not s.strip():
-        return []
-
-    parts = re.split(r"[;\\n/|,]", s)
-    out: List[str] = []
-    for p in parts:
-        norm = normalize_phone(p)
-        if norm:
-            out.append(norm)
-    seen: Set[str] = set()
-    uniq: List[str] = []
-    for v in out:
-        if v not in seen:
-            seen.add(v)
-            uniq.append(v)
-    return uniq
-
-
-def format_phone_multi(raw_value) -> Tuple[str, str]:
-    phones = extract_phone_list(raw_value)
-    if not phones:
+        return "", ""
+    if isinstance(raw, float) and pd.isna(raw):
+        return "", ""
+    s_raw = str(raw).strip()
+    if not s_raw or s_raw.lower() in {"nan", "n/a", "na", "none", "not available"}:
         return "", ""
 
-    formatted = [format_phone(p) for p in phones]
-    main = formatted[0]
-    more = " | ".join(formatted)
-    return main, more
+    digits = PHONE_CLEAN.sub("", s_raw)
+    if digits.startswith("1") and len(digits) == 11:
+        digits = digits[1:]
+    if len(digits) != 10:
+        return "", ""
+
+    display = f"{digits[0:3]}-{digits[3:6]}-{digits[6:10]}"
+    tel = f"+1{digits}"
+    return display, tel
+
+
+def format_phone_multi(raw_value) -> str:
+    if raw_value is None:
+        return ""
+    if isinstance(raw_value, float) and pd.isna(raw_value):
+        return ""
+    s = str(raw_value).strip()
+    if not s or s.lower() in {"nan", "n/a", "na", "none", "not available"}:
+        return ""
+    chunks = re.split(r"[,/;]|\bor\b", s)
+    parts = []
+    for ch in chunks:
+        ch = ch.strip()
+        if not ch:
+            continue
+        display, _tel = normalize_phone(ch)
+        if display:
+            parts.append(display)
+    return " | ".join(parts)
 
 
 def safe_email(value) -> str:
@@ -947,7 +887,7 @@ def render_filter_pills(
                 else:
                     selected = selected + [code]
             st.session_state[session_key] = selected
-            st.experimental_rerun()
+            st.rerun()
 
     st.markdown("</div>", unsafe_allow_html=True)
     return selected
@@ -991,7 +931,7 @@ def render_funding_type_pills(funding_type_counts: Counter) -> List[str]:
             else:
                 selected = selected + [code]
             st.session_state[session_key] = selected
-            st.experimental_rerun()
+            st.rerun()
 
     st.markdown(
         """
@@ -1058,7 +998,7 @@ def render_program_card(row: pd.Series) -> None:
     tags_list = row.get("__tags_list", [])
     key = row[COLS["KEY"]]
 
-    main_phone, phone_display_multi = format_phone_multi(raw_phone)
+    phone_display_multi = format_phone_multi(raw_phone)
 
     status_label = status_raw or "Unknown"
     status_class = "status-op"
@@ -1076,10 +1016,9 @@ def render_program_card(row: pd.Series) -> None:
     if isinstance(fresh_days, int):
         if fresh_days <= 60:
             freshness = "Recently checked"
-            fresh_html = f'<span class="fresh-chip">{freshness}</span>'
         else:
             freshness = f"Last checked {fresh_days} days ago"
-            fresh_html = f'<span class="fresh-chip">{freshness}</span>'
+        fresh_html = f'<span class="fresh-chip">{freshness}</span>'
     elif fresh_date:
         fresh_html = f'<span class="fresh-chip">Last checked {fresh_date}</span>'
 
@@ -1094,14 +1033,13 @@ def render_program_card(row: pd.Series) -> None:
     )
     st.markdown(f'<div class="card-org">{org}</div>', unsafe_allow_html=True)
 
-    key_desc = f"desc_{key}"
     key_more = f"more_{key}"
     show_more = st.session_state.get(key_more, False)
 
     if len(desc) > 320:
         short = desc[:320].rsplit(" ", 1)[0] + "..."
         st.markdown(
-            f'<div class="card-desc" id="{key_desc}">{short if not show_more else desc}</div>',
+            f'<div class="card-desc">{short if not show_more else desc}</div>',
             unsafe_allow_html=True,
         )
         toggled = st.button(
@@ -1110,22 +1048,23 @@ def render_program_card(row: pd.Series) -> None:
         )
         if toggled:
             st.session_state[key_more] = not show_more
-            st.experimental_rerun()
+            st.rerun()
     else:
         st.markdown(
-            f'<div class="card-desc" id="{key_desc}">{desc}</div>',
+            f'<div class="card-desc">{desc}</div>',
             unsafe_allow_html=True,
         )
 
     st.markdown('<div class="card-meta-row">', unsafe_allow_html=True)
     if funding_bucket_label and funding_bucket_label != "Unknown":
         st.markdown(
-            f'<span><span class="meta-label">Funding type:</span> {funding_bucket_label}</span>',
+            f'<span><span class="meta-label">Funding band:</span> {funding_bucket_label}</span>',
             unsafe_allow_html=True,
         )
     if elig:
+        trunc = elig[:140] + ("..." if len(elig) > 140 else "")
         st.markdown(
-            f'<span><span class="meta-label">Eligibility highlights:</span> {elig[:140]}{"..." if len(elig) > 140 else ""}</span>',
+            f'<span><span class="meta-label">Eligibility highlights:</span> {trunc}</span>',
             unsafe_allow_html=True,
         )
     st.markdown("</div>", unsafe_allow_html=True)
@@ -1169,43 +1108,44 @@ def render_program_card(row: pd.Series) -> None:
     )
 
     cols_actions = st.columns(4)
-
     with cols_actions[0]:
         if website:
-            clicked = st.button("Website", key=f"web_{key}")
-            if clicked:
-                st.markdown(
-                    f"[Open website]({website})", unsafe_allow_html=False
-                )
-
+            st.button("Website", key=f"web_{key}")
     with cols_actions[1]:
         if email:
             st.button("Email", key=f"email_{key}")
-
     with cols_actions[2]:
         if phone_display_multi:
-            st.button("Call", key=f"call_{key}")
-
+            call_clicked = st.button("Call", key=f"call_{key}")
+        else:
+            call_clicked = False
     with cols_actions[3]:
         if "favorites" not in st.session_state:
             st.session_state.favorites = set()
         fav_on = key in st.session_state.favorites
         fav_label = "★ Favourite" if fav_on else "☆ Favourite"
         fav_clicked = st.button(fav_label, key=f"fav_{key}")
-        if fav_clicked:
-            if fav_on:
-                st.session_state.favorites.remove(key)
-            else:
-                st.session_state.favorites.add(key)
-            st.experimental_rerun()
 
     st.markdown("</div></div>", unsafe_allow_html=True)
 
     if phone_display_multi:
-        st.markdown(
-            f'<div class="helper-text">Phone: {phone_display_multi}</div>',
-            unsafe_allow_html=True,
-        )
+        call_state_key = f"show_call_{key}"
+        if call_clicked:
+            st.session_state[call_state_key] = not st.session_state.get(
+                call_state_key, False
+            )
+        if st.session_state.get(call_state_key, False):
+            st.markdown(
+                f'<div class="helper-text">Phone: {phone_display_multi}</div>',
+                unsafe_allow_html=True,
+            )
+
+    if fav_clicked:
+        if fav_on:
+            st.session_state.favorites.remove(key)
+        else:
+            st.session_state.favorites.add(key)
+        st.rerun()
 
     st.markdown("</div>", unsafe_allow_html=True)
 
@@ -1216,6 +1156,12 @@ def render_program_card(row: pd.Series) -> None:
 def main():
     global COLS
 
+    st.set_page_config(
+        page_title="Small Business Supports Finder",
+        page_icon="✅",
+        layout="wide",
+    )
+
     embed_css()
     embed_logo_html()
 
@@ -1223,209 +1169,221 @@ def main():
     df, col_map = load_data(data_path)
     COLS = col_map
 
-    st.markdown("## Find programs and supports for your Alberta business")
-
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.markdown(
-            """1. **Choose filters**  
-Pick your location, support type, audience, funding needs, and more.""",
-        )
-    with col2:
-        st.markdown(
-            """2. **Browse matching programs**  
-Scroll through cards that match your selections.""",
-        )
-    with col3:
-        st.markdown(
-            """3. **Take action**  
-Use the website, email, phone, and favourite options to connect or save programs.""",
-        )
-
     if "favorites" not in st.session_state:
         st.session_state.favorites = set()
 
-    col_search, col_sort, col_page = st.columns([3, 1, 1])
-    with col_search:
-        st.markdown('<div class="search-shell">', unsafe_allow_html=True)
-        q = st.text_input(
-            "Search programs",
-            "",
-            help="Search also matches similar terms and common spellings, not just exact words.",
-        )
-        st.markdown("</div>", unsafe_allow_html=True)
-    with col_sort:
-        sort_by = st.selectbox(
-            "Sort results by",
-            ["Relevance", "Program name (A to Z)", "Most recently checked"],
-        )
-    with col_page:
-        page_size = st.selectbox("Results per page", [10, 25, 50], index=1)
+    with st.container():
+        st.markdown('<div class="app-shell">', unsafe_allow_html=True)
 
-    total_count = len(df)
-    st.markdown(
-        f'<div class="results-summary">{total_count} programs found.</div>',
-        unsafe_allow_html=True,
-    )
+        st.markdown("## Find programs and supports for your Alberta business")
 
-    with st.sidebar:
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.markdown(
+                """1. **Choose filters**  
+Pick your location, support type, audience, funding needs, and more.""",
+            )
+        with col2:
+            st.markdown(
+                """2. **Browse matching programs**  
+Scroll through cards that match your selections.""",
+            )
+        with col3:
+            st.markdown(
+                """3. **Take action**  
+Use the website, email, phone, and favourite options to connect or save programs.""",
+            )
+
+        col_search, col_sort, col_page = st.columns([3, 1, 1])
+        with col_search:
+            st.markdown('<div class="search-shell">', unsafe_allow_html=True)
+            q = st.text_input(
+                "Search programs",
+                "",
+                help="Search also matches similar terms and common spellings, not just exact words.",
+            )
+            st.markdown("</div>", unsafe_allow_html=True)
+        with col_sort:
+            sort_by = st.selectbox(
+                "Sort results by",
+                ["Relevance", "Program name (A to Z)", "Most recently checked"],
+            )
+        with col_page:
+            page_size = st.selectbox("Results per page", [10, 25, 50], index=1)
+
+        total_count = len(df)
         st.markdown(
-            "<div class='sidebar-label'>Filters</div>",
+            f'<div class="results-summary">{total_count} programs found.</div>',
             unsafe_allow_html=True,
         )
 
-        funding_type_counts = Counter()
-        for s in df["__fund_type_set"]:
-            for ft in s:
-                funding_type_counts[ft] += 1
-        selected_funding_types = render_funding_type_pills(funding_type_counts)
+        with st.sidebar:
+            st.markdown(
+                "<div class='sidebar-label'>Filters</div>",
+                unsafe_allow_html=True,
+            )
 
-        band_counts = Counter(df["__funding_bucket"])
-        band_options = [
-            (b, f"{b} ({band_counts.get(b, 0)})")
-            for b in [
-                "Under $5K",
-                "$5K to under $20K",
-                "$20K to under $50K",
-                "$50K to under $100K",
-                "$100K to under $250K",
-                "$250K to under $500K",
-                "$500K to under $1M",
-                "$1M and above",
+            funding_type_counts = Counter()
+            for s in df["__fund_type_set"]:
+                for ft in s:
+                    funding_type_counts[ft] += 1
+            selected_funding_types = render_funding_type_pills(funding_type_counts)
+
+            band_counts = Counter(df["__funding_bucket"])
+            band_options = [
+                (b, f"{b} ({band_counts.get(b, 0)})")
+                for b in [
+                    "Under $5K",
+                    "$5K to under $20K",
+                    "$20K to under $50K",
+                    "$50K to under $100K",
+                    "$100K to under $250K",
+                    "$250K to under $500K",
+                    "$500K to under $1M",
+                    "$1M and above",
+                ]
+                if band_counts.get(b, 0) > 0
             ]
-        ]
-        selected_bands = render_filter_pills(
-            "How much funding are you looking for?",
-            "These bands are based on the maximum funding available per program.",
-            band_options,
-            "filter_funding_band",
-        )
+            selected_bands = render_filter_pills(
+                "How much funding are you looking for?",
+                "These bands are based on the maximum funding available per program.",
+                band_options,
+                "filter_funding_band",
+            )
 
-        audience_counts = Counter()
-        for s in df["__audience_cats"]:
-            for a in s:
-                audience_counts[a] += 1
-        audience_options = sorted(
-            ((a, f"{a} ({audience_counts.get(a, 0)})") for a in audience_counts.keys()),
-            key=lambda x: x[0],
-        )
-        selected_audience = render_filter_pills(
-            "Who is this support for?",
-            "",
-            audience_options,
-            "filter_audience",
-        )
+            audience_counts = Counter()
+            for s in df["__audience_cats"]:
+                for a in s:
+                    audience_counts[a] += 1
+            audience_options = sorted(
+                ((a, f"{a} ({audience_counts.get(a, 0)})") for a in audience_counts),
+                key=lambda x: x[0],
+            )
+            selected_audience = render_filter_pills(
+                "Who is this support for?",
+                "",
+                audience_options,
+                "filter_audience",
+            )
 
-        region_counts = Counter()
-        for s in df["__region_cats"]:
-            for r in s:
-                region_counts[r] += 1
-        region_labels = [
-            "Province wide",
-            "Rural Alberta",
-            "Northern Alberta",
-            "Southern Alberta",
-            "Calgary region",
-            "Edmonton region",
-        ]
-        region_options = [
-            (r, f"{r} ({region_counts.get(r, 0)})") for r in region_labels
-        ]
-        selected_region = render_filter_pills(
-            "Where is your business located?",
-            "",
-            region_options,
-            "filter_region",
-        )
+            region_counts = Counter()
+            for s in df["__region_cats"]:
+                for r in s:
+                    region_counts[r] += 1
+            region_labels = [
+                "Province wide",
+                "Rural Alberta",
+                "Northern Alberta",
+                "Southern Alberta",
+                "Calgary region",
+                "Edmonton region",
+            ]
+            region_options = [
+                (r, f"{r} ({region_counts.get(r, 0)})")
+                for r in region_labels
+                if region_counts.get(r, 0) > 0
+            ]
+            selected_region = render_filter_pills(
+                "Where is your business located?",
+                "",
+                region_options,
+                "filter_region",
+            )
 
-        stage_counts = Counter()
-        for s in df["__stage_cats"]:
-            for a in s:
-                stage_counts[a] += 1
-        stage_labels = [
-            "Idea or planning",
-            "Startup or early stage",
-            "Growing or scaling",
-            "Established or mature",
-        ]
-        stage_options = [
-            (s, f"{s} ({stage_counts.get(s, 0)})") for s in stage_labels
-        ]
-        selected_stage = render_filter_pills(
-            "What stage is your business at?",
-            "",
-            stage_options,
-            "filter_stage",
-        )
+            stage_counts = Counter()
+            for s in df["__stage_cats"]:
+                for a in s:
+                    stage_counts[a] += 1
+            stage_labels = [
+                "Idea or planning",
+                "Startup or early stage",
+                "Growing or scaling",
+                "Established or mature",
+            ]
+            stage_options = [
+                (s, f"{s} ({stage_counts.get(s, 0)})")
+                for s in stage_labels
+                if stage_counts.get(s, 0) > 0
+            ]
+            selected_stage = render_filter_pills(
+                "Where is your business in its journey?",
+                "Some programs are tailored to certain stages of business.",
+                stage_options,
+                "filter_stage",
+            )
 
+            st.markdown(
+                "<div class='location-note'>Location filters apply based on the regions listed in each program. "
+                "If no specific region is listed, programs are treated as province wide.</div>",
+                unsafe_allow_html=True,
+            )
+
+        active_labels = build_active_filter_labels(
+            selected_funding_types,
+            selected_bands,
+            selected_audience,
+            selected_region,
+            selected_stage,
+        )
+        render_active_filters(active_labels)
+
+        out = df.copy()
+        out = out[fuzzy_mask(out, q, threshold=FUZZY_THR)]
+
+        if selected_funding_types:
+            mask_ft = out["__fund_type_set"].apply(
+                lambda s: any(ft in s for ft in selected_funding_types)
+            )
+            out = out[mask_ft]
+
+        if selected_bands:
+            out = apply_simple_filter(out, "__funding_bucket", selected_bands)
+        if selected_audience:
+            out = apply_multi_filter(out, "__audience_cats", selected_audience)
+        if selected_region:
+            out = apply_multi_filter(out, "__region_cats", selected_region)
+        if selected_stage:
+            out = apply_multi_filter(out, "__stage_cats", selected_stage)
+
+        if sort_by == "Program name (A to Z)":
+            out = out.sort_values(COLS["PROGRAM_NAME"].strip(), kind="mergesort")
+        elif sort_by == "Most recently checked":
+            out = out.sort_values("__fresh_days", ascending=True, kind="mergesort")
+
+        filtered_count = len(out)
         st.markdown(
-            "<div class='location-note'>Location filters apply based on the regions listed in each program. If no specific region is listed, programs are treated as province wide.</div>",
+            f'<div class="results-summary">Showing {filtered_count} programs based on your filters.</div>',
             unsafe_allow_html=True,
         )
 
-    active_labels = build_active_filter_labels(
-        selected_funding_types,
-        selected_bands,
-        selected_audience,
-        selected_region,
-        selected_stage,
-    )
-    render_active_filters(active_labels)
+        if filtered_count == 0:
+            st.info(
+                "No programs found that match your search and filters. "
+                "Try removing a filter or broadening your search terms."
+            )
+            st.markdown("</div>", unsafe_allow_html=True)
+            return
 
-    out = df.copy()
-    out = out[fuzzy_mask(out, q, threshold=FUZZY_THR)]
-
-    if selected_funding_types:
-        mask_ft = out["__fund_type_set"].apply(
-            lambda s: any(ft in s for ft in selected_funding_types)
+        total_pages = (filtered_count - 1) // page_size + 1
+        page_num = st.number_input(
+            "Page",
+            min_value=1,
+            max_value=int(total_pages),
+            value=1,
+            step=1,
+            help="Use this to jump between pages of results.",
         )
-        out = out[mask_ft]
 
-    if selected_bands:
-        out = apply_simple_filter(out, "__funding_bucket", selected_bands)
-    if selected_audience:
-        out = apply_multi_filter(out, "__audience_cats", selected_audience)
-    if selected_region:
-        out = apply_multi_filter(out, "__region_cats", selected_region)
-    if selected_stage:
-        out = apply_multi_filter(out, "__stage_cats", selected_stage)
+        start_idx = (page_num - 1) * page_size
+        end_idx = start_idx + page_size
+        page_df = out.iloc[start_idx:end_idx]
 
-    if sort_by == "Program name (A to Z)":
-        out = out.sort_values(COLS["PROGRAM_NAME"].strip(), kind="mergesort")
-    elif sort_by == "Most recently checked":
-        out = out.sort_values("__fresh_days", ascending=True, kind="mergesort")
+        open_shell()
+        for _, row in page_df.iterrows():
+            render_program_card(row)
+        close_shell()
 
-    filtered_count = len(out)
-    st.markdown(
-        f'<div class="results-summary">Showing {filtered_count} programs based on your filters.</div>',
-        unsafe_allow_html=True,
-    )
-
-    if filtered_count == 0:
-        st.info(
-            "No programs found that match your search and filters. "
-            "Try removing a filter or broadening your search terms."
-        )
-        return
-
-    total_pages = (filtered_count - 1) // page_size + 1
-    page_num = st.number_input(
-        "Page",
-        min_value=1,
-        max_value=int(total_pages),
-        value=1,
-        step=1,
-        help="Use this to jump between pages of results.",
-    )
-
-    start_idx = (page_num - 1) * page_size
-    end_idx = start_idx + page_size
-    page_df = out.iloc[start_idx:end_idx]
-
-    open_shell()
-    for _, row in page_df.iterrows():
-        render_program_card(row)
-    close_shell()
+        st.markdown("</div>", unsafe_allow_html=True)
 
 
 if __name__ == "__main__":
